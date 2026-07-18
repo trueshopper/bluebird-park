@@ -680,45 +680,63 @@ const rndTerrain = SIM.mulberry32(777);
   if (SIM.CAVE && SIM.MAP_ID === 'bluebird') {
     const CV = SIM.CAVE;
     const rockWallM = new THREE.MeshLambertMaterial({ color: 0x4c5266, map: rep(TEX.rockMap, 3, 2.2), bumpMap: rep(TEX.rockBump, 3, 2.2), bumpScale: 0.4 });
-    const capM = new THREE.MeshLambertMaterial({ color: 0xeef1f6, map: rep(TEX.snowMap, 5, 2), bumpMap: rep(TEX.snowBump, 5, 2), bumpScale: 0.35 });
-    const rockTopM = new THREE.MeshLambertMaterial({ color: 0x565c72, map: rep(TEX.rockMap, 1.5, 1.5), bumpMap: rep(TEX.rockBump, 1.5, 1.5), bumpScale: 0.35 });
+    const driftM = new THREE.MeshLambertMaterial({ color: 0xeef1f6, map: rep(TEX.snowMap, 3, 3), bumpMap: rep(TEX.snowBump, 3, 3), bumpScale: 0.45 });
     const rT = SIM.mulberry32(919);
-    // MESA REDO [user]: rock walls run from the tunnel out to the MAP WALLS,
-    // topped with a FLAT snow layer scattered with trees and boulders
+    const driftG = lumpy(new THREE.SphereGeometry(1, 14, 10), 0.14, 11); // soft irregular snow bodies
+    const trunkM = new THREE.MeshLambertMaterial({ color: 0x5a4633 });
+    const coneM = new THREE.MeshLambertMaterial({ color: 0x33584a });
+    const capM2 = new THREE.MeshLambertMaterial({ color: 0xeef1f6 });
+    const tree = (tx, ty, tz, tsc) => {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), trunkM);
+      trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), coneM);
+      cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
+      const cp = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), capM2);
+      cp.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cp);
+    };
     const segStep = 20;
     for (let sSeg = CV.s0 - 4; sSeg <= CV.s1 + 4; sSeg += segStep) {
       const cl2 = SIM.centerline(sSeg);
       const fy = SIM.terrainH(sSeg, cl2);
-      const topY = fy + 16;
+      const topY = fy + 16.5;
       for (const sd of [-1, 1]) {
-        // solid rock flank: tunnel edge (±19) out to the park wall (±46)
+        // solid rock flank: tunnel edge out to the map wall
         const wall = new THREE.Mesh(new THREE.BoxGeometry(27, 26, segStep * 1.03), rockWallM);
         wall.position.set(cl2 + sd * 32.5, fy + 3.5, -sSeg);
         scene.add(wall);
       }
-      // flat snow cap spanning the full width, INCLUDING over the tunnel arch
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(94, 2.6, segStep * 1.03), capM);
-      cap.position.set(cl2, topY + 1.3, -sSeg);
-      scene.add(cap);
-      // natural clutter on the plateau: snow-dusted trees + boulders [user]
-      for (let i = 0; i < 4; i++) {
-        const tx = cl2 + (rT() * 2 - 1) * 42, tz = -(sSeg + (rT() * 2 - 1) * segStep * 0.45);
-        const ty = topY + 2.6;
-        if (rT() < 0.72) {
-          const tsc = 0.55 + rT() * 0.7;
-          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
-          trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
-          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
-          cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
-          const cap2 = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xeef1f6 }));
-          cap2.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap2);
-        } else {
-          const b = new THREE.Mesh(lumpy(new THREE.IcosahedronGeometry(1, 1), 0.3, 5), rockTopM);
-          b.scale.setScalar(0.8 + rT() * 1.3);
-          b.position.set(tx, ty + 0.5, tz);
-          b.rotation.set(rT() * 3, rT() * 3, rT() * 3);
-          scene.add(b);
-        }
+      // NATURAL snowpack [user]: overlapping wind-blown drifts LAID over the
+      // rock — rolling and irregular, not a slab
+      const nDrift = 4;
+      for (let i = 0; i < nDrift; i++) {
+        const dl = (i / (nDrift - 1)) * 2 - 1; // spread across the top
+        const d = new THREE.Mesh(driftG, driftM);
+        d.scale.set(15 + rT() * 8, 2.6 + rT() * 1.8, 12 + rT() * 6);
+        d.position.set(cl2 + dl * 30 + (rT() - 0.5) * 6, topY + 0.4, -(sSeg + (rT() - 0.5) * 7));
+        d.rotation.y = rT() * 3.14;
+        scene.add(d);
+      }
+      // MANY trees rooted in the snowpack [user]
+      for (let i = 0; i < 9; i++) {
+        const tx = cl2 + (rT() * 2 - 1) * 40, tz = -(sSeg + (rT() * 2 - 1) * segStep * 0.48);
+        tree(tx, topY + 1.9 + rT() * 1.2, tz, 0.5 + rT() * 0.75);
+      }
+    }
+    // PORTAL FACES [user]: rock walls close off the outside of each entrance —
+    // you ski INTO a massif, not past a free-standing pipe
+    for (const [pS, dir] of [[CV.s0 - 7, 1], [CV.s1 + 7, -1]]) {
+      const clP = SIM.centerline(pS);
+      const fyP = SIM.terrainH(pS, clP);
+      for (const sd of [-1, 1]) {
+        const face = new THREE.Mesh(new THREE.BoxGeometry(28, 27, 7), rockWallM);
+        face.position.set(clP + sd * 33, fyP + 4, -pS);
+        scene.add(face);
+        // drift on the face top
+        const d = new THREE.Mesh(driftG, driftM);
+        d.scale.set(13, 2.4, 5.5);
+        d.position.set(clP + sd * 31, fyP + 17.9, -pS);
+        scene.add(d);
+        tree(clP + sd * 30 + 2, fyP + 19.2, -pS + 1.5, 0.6 + 0.3 * sd * dir * 0.2);
       }
     }
   }

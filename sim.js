@@ -149,7 +149,7 @@ export const MAPS = {
     valleyK: (s) => (s > 905 ? 0.002 + 0.008 * smooth01((950 - s) / 45) : 0.010),
     rollers: [[66, 172, 1], [466, 522, 1]],
     gradePts: [
-      [0, 0.45], [30, 0.36], [60, 0.25], [125, 0.22], [178, 0.22], // steeper in-run to the opening jumps [user]
+      [0, 0.45], [30, 0.38], [60, 0.3], [125, 0.24], [178, 0.22], // steeper in-run: the first jumps clear without question [user]
       [186.5, 0.24], [187.2, 1.35], [194, 1.35], [194.7, 0.42], [225, 0.22],
       [300, 0.18], [392, 0.2], [395, 0.55], [400, 0.55], [404, 0.2],
       [428, 0.26], [436.3, 0.3], [437, 1.5], [446, 1.5], [446.7, 0.48],
@@ -158,13 +158,13 @@ export const MAPS = {
       [1225, -0.08], [1320, -0.16],
     ],
     kickers: [
-      { s0: 95,  La: 11, A: 2.8, T: 10, Ld: 12, off: 0,  name: 'S' },
-      { s0: 142, La: 15, A: 4.0, T: 13, Ld: 15, off: 0,  name: 'MED' },   // medium with a knuckle run-up rail beside it
+      { s0: 95,  La: 11, A: 2.8, T: 7, Ld: 12, off: 0,  name: 'S' },
+      { s0: 142, La: 15, A: 4.0, T: 11, Ld: 15, off: 0,  name: 'MED' },   // medium with a knuckle run-up rail beside it
       // the STREAM JUMP LINE: each table launches the line across the creek,
       // landing on the far bank [user]
-      { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, gap: true, name: 'M' },
-      { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  gap: true, name: 'L' },
-      { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, gap: true, name: 'XL' },
+      { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, name: 'M' },
+      { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  name: 'L' },
+      { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, name: 'XL' },
       // KNUCKLE GARDEN finale [user]: jumps with rails living ON the knuckle run-ups
       { s0: 905, La: 14, A: 4.0, T: 8, Ld: 15, off: -8, name: 'KG1' },
       { s0: 960, La: 15, A: 4.4, T: 8, Ld: 16, off: 6,  name: 'KG2' },
@@ -557,7 +557,7 @@ function clearOfFeatures(s, l) {
 export const STREAM = { s0: 452, s1: 872 };
 // control points: (s, offset from centerline). The creek slips THROUGH each
 // gap jump and swings clear of every table, rail and landing in between.
-const STREAM_PTS = [[452, -14], [520, -18], [556, -5], [578, -5], [640, -19], [696, 6], [717, 6], [744, -6], [788, -19], [836, -4], [858, -4], [872, -9]];
+const STREAM_PTS = [[452, -16], [520, -22], [604, -22], [624, 22], [738, 22], [762, -22], [872, -22]]; // hugs the ground BESIDE the lines; jumps sit on either bank [user]
 export function streamL(s) {
   let a = STREAM_PTS[0], b = STREAM_PTS[STREAM_PTS.length - 1];
   for (let i = 0; i < STREAM_PTS.length - 1; i++) {

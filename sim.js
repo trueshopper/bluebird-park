@@ -1031,7 +1031,7 @@ function airStep(st, dt, inp, STRN) {
   // airs (a proper rise off a lip, or a big drop). Utility hops onto rails
   // stay crisp so the steel under you doesn't outrun your fall.
   const realAir = (a.apexY - a.startY > 1.1) || (a.startY - st.pos.y > 1.5);
-  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.38 : 0.74) : 1); // floaty airs, nudged lighter again [batch 2]
+  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.4 : 0.78) : 1); // floaty airs — gravity back up a touch [user]
   const sp = speedOf(v);
   if (sp > 0.01) {
     const f = Math.max(0, (sp - 0.0014 * sp * sp * dt) / sp);

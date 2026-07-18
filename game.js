@@ -1620,6 +1620,7 @@ const params = new URLSearchParams(location.search);
 const dev = params.has('dev');
 // dev spawn: ?at=230 drops the run at s=230 on the centerline (verification tool)
 const devAt = Math.max(0, parseFloat(params.get('at') || '0') || 0);
+const GRABTEST = params.get('grabtest'); // dev pose-viewer: freeze a grab at the gate, full weight, slow spin
 let devAtDone = false;
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -2214,6 +2215,18 @@ let prevVisMode = 'gate', throwT = 0, throwDir = 0; // arm-throw impulse at spin
 function damp(cur, tgt, rate, dt) { return cur + (tgt - cur) * (1 - Math.exp(-rate * dt)); }
 
 function updateVisuals(dt) {
+  if (GRABTEST && sim.mode === 'gate' && GRAB_DEFS[GRABTEST]) {
+    const gd = GRAB_DEFS[GRABTEST];
+    setTargets(POSES.airNeut);
+    setTargets(POSES[gd.pose] || POSES.safety, 1);
+    airSkiL = gd.sl; airSkiR = gd.sr;
+    grabIKReq = gd.ik ? { ik: gd.ik, w: 1 } : null;
+    for (const k in JOINT_RATE) { const j2 = J[k], t2 = target[k]; j2.rotation.set(t2[0], t2[1], t2[2]); }
+    if (R1.SKIS) { R1.SKIS.L.rotation.x = airSkiL; R1.SKIS.R.rotation.x = airSkiR; }
+    R1.rig.rotation.y = performance.now() * 0.0004; // slow turntable
+    if (grabIKReq) applyGrabIK(R1, grabIKReq);
+    return;
+  }
   const st = sim;
   const p = st.pos;
   // THROW: the instant a spinning takeoff leaves the snow, the wound-up arms get
@@ -2411,7 +2424,7 @@ function updateVisuals(dt) {
     }
     const leadN = Math.max(-1, Math.min(1, leadV / 0.52)); // -1..1 edge amount
     carveEdgeG = st.mode === 'ground' ? leadN : 0; carveSpdG = hspd; // -> spray emitter
-    const lean = -leadN * Math.min(0.55, 0.15 + hspd * 0.02);
+    const lean = -leadN * Math.min(0.78, 0.12 + hspd * 0.032); // speed digs the bank deeper [batch 3]: ~24deg at cruise, ~45deg railing at speed
     // ANGULATION [user]: real carving stacks the chest — the pelvis and legs
     // bank INTO the arc while the spine counters back so the shoulders stay
     // level and the upper body reads solid, not swaying with the ski
@@ -2592,6 +2605,18 @@ function updateVisuals(dt) {
   sun.position.set(p.l + SUN_DIR.x * 60, p.y + SUN_DIR.y * 60, -p.s + SUN_DIR.z * 60);
   sun.target.position.set(p.l, p.y, -p.s);
   sun.target.updateMatrixWorld();
+  { // NEVER LOSE THE RIDER [user]: project the skier into the frame — if they
+    // drift toward an edge (big airs), the look-damping breaks and the filmer
+    // whips to re-center. Guarantees the skier stays on screen.
+    camera.updateMatrixWorld(true);
+    _v2.set(p.l, p.y + 0.7, -p.s).project(camera);
+    const ox = Math.max(0, Math.abs(_v2.x) - 0.72), oy = Math.max(0, Math.abs(_v2.y) - 0.62);
+    if (_v2.z > 1 || ox > 0 || oy > 0) {
+      const k3 = _v2.z > 1 ? 1 : Math.min(1, (ox + oy) * 3.2);
+      _lookCur.lerp(_look, k3);
+      camera.lookAt(_lookCur);
+    }
+  }
 
   // --- HUD ---
   els.speed.textContent = `${Math.round(spd * 3.6)} ${STR.speedUnit}`;

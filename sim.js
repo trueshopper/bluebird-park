@@ -158,10 +158,10 @@ export const MAPS = {
       [1170, 0.04], [1225, -0.08], [1320, -0.16],
     ],
     kickers: [
-      { s0: 100, La: 12, A: 3.0, T: 14, Ld: 13, off: 0,  name: 'S' },
-      { s0: 560, La: 16, A: 4.2, T: 20, Ld: 17, off: -5, name: 'M' },
-      { s0: 700, La: 19, A: 5.0, T: 26, Ld: 20, off: 6,  name: 'L' },
-      { s0: 840, La: 22, A: 5.6, T: 32, Ld: 22, off: -4, name: 'XL' },
+      { s0: 100, La: 12, A: 3.0, T: 11, Ld: 13, off: 0,  name: 'S' },
+      { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, name: 'M' },
+      { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  name: 'L' },
+      { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, name: 'XL' },
       { s0: 990, La: 16, A: 4.4, T: 34, Ld: 16, off: 0,  name: 'LODGE' },
     ],
     rails: [
@@ -199,18 +199,18 @@ export const MAPS = {
     ],
     kickers: [
       // FIN & HIP ZONE: staggered offset kickers — lines cross, hits come at angles
-      { s0: 140, La: 11, A: 3.2, T: 14, Ld: 12, off: -14, name: 'FIN-L' },
-      { s0: 168, La: 11, A: 3.2, T: 14, Ld: 12, off: 13,  name: 'FIN-R' },
-      { s0: 200, La: 13, A: 4.0, T: 16, Ld: 14, off: 0,   name: 'HIP' },
+      { s0: 140, La: 11, A: 3.2, T: 4, Ld: 12, off: -14, name: 'FIN-L' },
+      { s0: 168, La: 11, A: 3.2, T: 4, Ld: 12, off: 13,  name: 'FIN-R' },
+      { s0: 200, La: 13, A: 4.0, T: 12, Ld: 14, off: 0,   name: 'HIP' },
       // TWIN LINES, side by side (Kläppen red/black): red = medium, black = large
       // REAL PROPORTIONS [user]: red lips ~2x skier, black lips ~3x; long
       // tables put the knuckle ~4 skiers above the landing base
-      { s0: 272, La: 14, A: 3.8, T: 22, Ld: 18, off: -13, name: 'RED1' },
-      { s0: 282, La: 18, A: 5.2, T: 28, Ld: 22, off: 13,  name: 'BLK1' },
-      { s0: 352, La: 14, A: 3.8, T: 22, Ld: 18, off: -13, name: 'RED2' },
-      { s0: 362, La: 18, A: 5.2, T: 28, Ld: 22, off: 13,  name: 'BLK2' },
-      { s0: 432, La: 14, A: 4.0, T: 22, Ld: 18, off: -13, name: 'RED3' },
-      { s0: 442, La: 18, A: 5.4, T: 28, Ld: 22, off: 13,  name: 'BLK3' },
+      { s0: 272, La: 14, A: 3.8, T: 14, Ld: 18, off: -13, name: 'RED1' },
+      { s0: 282, La: 18, A: 5.2, T: 17, Ld: 22, off: 13,  name: 'BLK1' },
+      { s0: 352, La: 14, A: 3.8, T: 14, Ld: 18, off: -13, name: 'RED2' },
+      { s0: 362, La: 18, A: 5.2, T: 17, Ld: 22, off: 13,  name: 'BLK2' },
+      { s0: 432, La: 14, A: 4.0, T: 14, Ld: 18, off: -13, name: 'RED3' },
+      { s0: 442, La: 18, A: 5.4, T: 17, Ld: 22, off: 13,  name: 'BLK3' },
     ],
     rails: [
       // KNUCKLE RAILS [user]: rails live ON the jumps, not in a separate garden.
@@ -264,15 +264,15 @@ export const MAPS = {
     ],
     kickers: [
       // THE BIG JUMP PAIR [drone] — lanes l=10 and l=32
-      { s0: 88, La: 16, A: 5.0, T: 14, Ld: 20, off: 10, name: 'BIG-L' },   // lands 102-122, runout to 137
-      { s0: 96, La: 15, A: 4.8, T: 13, Ld: 18, off: 32, name: 'BIG-R' },   // lands 109-127, runout to 142
+      { s0: 88, La: 16, A: 4.6, T: 8, Ld: 20, off: 10, name: 'BIG-L' },   // lands 102-122, runout to 137
+      { s0: 96, La: 15, A: 4.4, T: 13, Ld: 18, off: 32, name: 'BIG-R' },   // lands 109-127, runout to 142
       // BIG-3 chains the RIGHT line: ramp begins after BIG-R's runout
       { s0: 150, La: 13, A: 4.4, T: 8, Ld: 16, off: 30, name: 'BIG-3' },   // lands 158-174, runout to 189
       // BIG-4 chains the LEFT-CENTER line off the cannon's landing zone
       { s0: 204, La: 12, A: 4.0, T: 7, Ld: 15, off: 2, name: 'BIG-4' },    // lands 211-226, runout to 241
       // TRANSFER ALLEY [photo 3]: lips whose decks carry rails
-      { s0: 396, La: 13, A: 3.6, T: 16, Ld: 18, off: -6, name: 'TSF-L' },  // lands 412-430, runout to 445
-      { s0: 444, La: 14, A: 4.2, T: 16, Ld: 20, off: 22, name: 'TSF-R' },  // lands 460-480, runout to 495
+      { s0: 396, La: 13, A: 3.6, T: 13, Ld: 18, off: -6, name: 'TSF-L' },  // lands 412-430, runout to 445
+      { s0: 444, La: 14, A: 4.2, T: 13, Ld: 20, off: 22, name: 'TSF-R' },  // lands 460-480, runout to 495
       // the finale STEP-DOWN into the corral
       { s0: 548, La: 13, A: 4.6, T: 12, Ld: 24, off: 2, name: 'STEP-DN' }, // lands 560-584
     ],
@@ -570,8 +570,8 @@ export function buildDecor(seed) {
 // ---------- physics tuning ----------
 export const TUNE = {
   friction: 0.016,
-  dragGlide: 0.0085,   // terminal ~14 m/s on the steeps (25% slower)
-  dragTuck: 0.0053,    // terminal ~18 m/s — tuck to send the XL
+  dragGlide: 0.0093,   // slower overall run [batch item 10]
+  dragTuck: 0.0058,    // tuck still sends, but no more warp speed [batch item 10]
   dragBrake: 0.036,
   brakeFriction: 0.11,
   carveK: 2.8,         // path turn rate per rad of edge angle (1/s)
@@ -583,7 +583,7 @@ export const TUNE = {
   turnRate: 3.1,       // rad/s base (how fast you set the edge)
   skateAccel: 1.4,     // m/s^2 poling/skating boost below skateSpeed
   skateSpeed: 8,
-  popBase: 1.0,        // realistic ollie: a hop uncharged, ~27cm fully loaded
+  popBase: 0.95,       // modest launch: low peak height, float does the carrying [batch item 10]
   popCharge: 1.3,      // extra at full charge
   chargeMax: 0.5,      // s
   yawRateMax: 4.85,     // rad/s in air — slightly slower per user: uncharged 360 ~1.4s
@@ -1030,7 +1030,7 @@ function airStep(st, dt, inp, STRN) {
   // airs (a proper rise off a lip, or a big drop). Utility hops onto rails
   // stay crisp so the steel under you doesn't outrun your fall.
   const realAir = (a.apexY - a.startY > 1.1) || (a.startY - st.pos.y > 1.5);
-  v.y -= G * dt * (realAir && Math.abs(v.y) < 2.8 ? 0.45 : 1);
+  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.4 : 0.78) : 1); // floaty airs: lighter gravity all flight, lightest at the apex [batch item 10]
   const sp = speedOf(v);
   if (sp > 0.01) {
     const f = Math.max(0, (sp - 0.0014 * sp * sp * dt) / sp);

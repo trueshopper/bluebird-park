@@ -42,6 +42,8 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 const DPR_CAP = 1.5;
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, DPR_CAP));
+renderer.shadowMap.enabled = true; // rider-only casters -> cheap [batch item 4]
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 // sky mode comes from the map config: night, day, or sunset
 const SKYMODE = SIM.MAPS[SIM.MAP_ID].sky || 'night';
@@ -73,7 +75,14 @@ const SUN_DIR = (SKYMODE === 'day' ? new THREE.Vector3(-0.38, 0.82, 0.28)
   : SKYMODE === 'sunset' ? new THREE.Vector3(-0.75, 0.3, 0.4)
   : new THREE.Vector3(-0.5, 0.62, 0.3)).normalize();
 sun.position.copy(SUN_DIR).multiplyScalar(100);
+sun.castShadow = true; // natural cast shadow under the rider [batch item 4]
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
+sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 200;
+sun.shadow.bias = -0.0015;
 scene.add(sun);
+scene.add(sun.target);
 scene.add(SKYMODE === 'day'
   ? new THREE.HemisphereLight(0xbfd9f2, 0xf0ebe0, 1.05)
   : SKYMODE === 'sunset'
@@ -491,6 +500,7 @@ const rndTerrain = SIM.mulberry32(777);
     bumpMap: rep(GROOMED ? TEX.groomBump : TEX.snowBump, 1, 1),
     bumpScale: GROOMED ? 0.18 : 0.4,
   }));
+  window.__terrain.receiveShadow = true;
   scene.add(window.__terrain);
 }
 
@@ -1036,6 +1046,22 @@ window.__dbgScene = scene; // temp debug handle
 // shared material pool — one material per color+variant instead of one per
 // mesh (the rider alone was minting ~75 materials; this collapses them)
 const MAT_POOL = new Map();
+// PLAID FLANNEL [batch item 3, ref frame]: red/black check canvas + cloth weave bump
+const plaidTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#a32c2c'; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = 'rgba(22,16,16,0.85)';
+  for (const o of [0, 64]) { g.fillRect(o, 0, 26, 128); g.fillRect(0, o, 128, 26); }
+  g.fillStyle = 'rgba(190,60,50,0.45)';
+  for (const o of [40, 104]) { g.fillRect(o, 0, 7, 128); g.fillRect(0, o, 128, 7); }
+  g.strokeStyle = 'rgba(240,228,205,0.6)'; g.lineWidth = 2;
+  for (const o of [13, 77]) { g.beginPath(); g.moveTo(o, 0); g.lineTo(o, 128); g.moveTo(0, o); g.lineTo(128, o); g.stroke(); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.4, 2.4);
+  return t;
+})();
+let FLANNEL_MAT = null;
 function pooledMat(color, cloth) {
   const key = color + (cloth ? '|c' : '');
   let m = MAT_POOL.get(key);
@@ -1251,6 +1277,7 @@ const WARDROBE = {
     { id: 'jacket', label: 'Orange Jacket',  kind: 'jacket', color: 0xd97a4e, dark: 0xb85f3a },
     { id: 'tealJ',  label: 'Teal Shell',     kind: 'jacket', color: 0x3aa8a0, dark: 0x2d837d, unlockLvl: 2 },
     { id: 'charJ',  label: 'Charcoal Shell', kind: 'jacket', color: 0x394150, dark: 0x2b303c, unlockLvl: 4 },
+    { id: 'flannel', label: 'Plaid Flannel',  kind: 'crew',   tex: 'plaid', color: 0xa32c2c, dark: 0x6e1d1d },
   ],
   gloves: [
     { id: 'blackG2', label: 'Black Gloves', color: 0x2b303c },
@@ -1270,6 +1297,7 @@ const WARDROBE = {
   poles: [
     { id: 'blackPl', label: 'Black Poles', color: 0x232830 },
     { id: 'whitePl', label: 'White Poles', color: 0xe8e8e8 },
+    { id: 'noPl',    label: 'No Poles',    color: 0xd8d2c4 },
   ],
 };
 const DEFAULT_WARDROBE = { skis: 'steel', boots: 'blackB', pants: 'slate', top: 'jacket', gloves: 'blackG2', helmet: 'charH', goggles: 'blackGo', poles: 'blackPl' };
@@ -1318,6 +1346,10 @@ function dressRider(R = R1) {
   const add = (parent, geo, color, x, y, z) => {
     const m = part(geo, color, x, y, z);
     m.material = pooledMat(color, true); // garments default to woven cloth (pooled)
+    if (top.tex === 'plaid' && color === top.color) { // real fabric print [batch item 3]
+      if (!FLANNEL_MAT) FLANNEL_MAT = new THREE.MeshLambertMaterial({ map: plaidTex, bumpMap: CLOTH_B, bumpScale: 0.05, flatShading: false });
+      m.material = FLANNEL_MAT;
+    }
     parent.add(m); R.meshes.push(m); return m;
   };
   const bare = (m) => { m.material = pooledMat(m.material.color.getHex(), false); return m; }; // skin, shells, lenses stay smooth
@@ -1399,7 +1431,9 @@ function dressRider(R = R1) {
       add(J3['elbow' + side], new THREE.CylinderGeometry(0.05, 0.062, 0.055, 10), gloves.color, 0, -0.242, 0); // gauntlet cuff
     }
     { // POLE [user]: grip in the fist, ~1m shaft angled down-back, powder basket + tip
-      const poleC = isSig ? (def.kit.pole != null ? def.kit.pole : 0x232830) : wItem('poles', P.wardrobe.poles).color;
+      const poleIt = wItem('poles', P.wardrobe.poles);
+      if (!isSig && poleIt.id === 'noPl') { /* rides bare-handed */ } else {
+      const poleC = isSig ? (def.kit.pole != null ? def.kit.pole : 0x232830) : poleIt.color;
       const pg = new THREE.Group();
       pg.position.set(0, -0.29, 0.02);
       pg.rotation.x = 0.42; // trails behind the hand like a real planted-back carry
@@ -1409,6 +1443,7 @@ function dressRider(R = R1) {
       mk(new THREE.CylinderGeometry(0.008, 0.006, 0.98, 6), poleC, -0.52);        // shaft
       mk(new THREE.CylinderGeometry(0.052, 0.052, 0.012, 10), poleC, -0.93);      // basket
       mk(new THREE.CylinderGeometry(0.007, 0.009, 0.05, 6), 0x3a3f4a, -0.99);     // carbide tip
+      }
     }
     // PANTS: baggy at the seat, tapering into the cuff — but legs, not columns
     add(J3['hip' + side], limbSeg(0.105 * F, 0.09 * F, 0.38), pants.color, 0, 0.03, 0);
@@ -1463,8 +1498,41 @@ function dressRider(R = R1) {
     R.meshes.push(skiG);
     R.SKIS[side] = skiG;
   }
+  R.rig.traverse((m2) => { if (m2.isMesh) m2.castShadow = true; }); // [batch item 4]
 }
 dressRider();
+
+// ---- CARVE SNOW SPRAY [batch item 11]: capped ring-buffer particle emitter —
+// powder kicks off the downhill edge, scales with edge angle x speed ----
+const SPRAY_N = 220;
+const sprayPos = new Float32Array(SPRAY_N * 3);
+const sprayVel = new Float32Array(SPRAY_N * 3);
+const sprayLife = new Float32Array(SPRAY_N);
+const sprayGeo = new THREE.BufferGeometry();
+sprayGeo.setAttribute('position', new THREE.BufferAttribute(sprayPos, 3));
+const sprayPts = new THREE.Points(sprayGeo, new THREE.PointsMaterial({
+  color: 0xffffff, size: 0.17, transparent: true, opacity: 0.8, depthWrite: false, sizeAttenuation: true }));
+sprayPts.frustumCulled = false;
+scene.add(sprayPts);
+let sprayIdx = 0;
+function spraySpawn(x, y, z, vx, vy, vz) {
+  const i = sprayIdx; sprayIdx = (sprayIdx + 1) % SPRAY_N;
+  sprayPos[i * 3] = x; sprayPos[i * 3 + 1] = y; sprayPos[i * 3 + 2] = z;
+  sprayVel[i * 3] = vx; sprayVel[i * 3 + 1] = vy; sprayVel[i * 3 + 2] = vz;
+  sprayLife[i] = 0.45 + Math.random() * 0.3;
+}
+function sprayTick(dt2) {
+  for (let i = 0; i < SPRAY_N; i++) {
+    if (sprayLife[i] <= 0) { sprayPos[i * 3 + 1] = -9999; continue; }
+    sprayLife[i] -= dt2;
+    sprayVel[i * 3 + 1] -= 21 * dt2;
+    sprayPos[i * 3] += sprayVel[i * 3] * dt2;
+    sprayPos[i * 3 + 1] += sprayVel[i * 3 + 1] * dt2;
+    sprayPos[i * 3 + 2] += sprayVel[i * 3 + 2] * dt2;
+  }
+  sprayGeo.attributes.position.needsUpdate = true;
+}
+let carveEdgeG = 0, carveSpdG = 0; // fed by the carve pose block each frame
 
 // blob shadow
 let shadow;
@@ -1478,6 +1546,7 @@ let shadow;
   shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2;
+  shadow.visible = false; // retired: the shadow-map shadow replaced the blob [batch item 4]
   scene.add(shadow);
 }
 
@@ -1496,14 +1565,19 @@ const POSES = {
   safety:  { hips: [0.35, 0, -0.06], spine: [0.45, 0.12, -0.18], neck: [-0.4, -0.12, 0.1], shoulderL: [0.25, 0, 1.05], shoulderR: [1.15, 0, -0.18], elbowL: [-0.45, 0, 0], elbowR: [-0.35, 0, 0], hipL: [-1.1, 0, 0.05], hipR: [-1.3, 0, -0.08], kneeL: [1.6, 0, 0], kneeR: [1.85, 0, 0], ankleL: [-0.4, 0, 0], ankleR: [-0.45, 0, 0] },
   // MUTE (cover-art style): right hand crosses to grab the TIP of the left ski,
   // both skis swung together OFF TO THE SIDE, trail arm swept back-high for the tweak
-  mute:    { hips: [0.5, 0, 0.15], spine: [0.7, 0.45, -0.2], neck: [-0.55, -0.4, 0.05], shoulderL: [-0.4, 0, 1.0], shoulderR: [2.0, 0.5, -0.35], elbowL: [-0.3, 0, 0], elbowR: [-0.25, 0, 0], hipL: [-1.45, 0.42, 0.12], hipR: [-1.25, 0.42, -0.02], kneeL: [1.95, 0, 0], kneeR: [1.75, 0, 0], ankleL: [-0.4, 0.5, 0], ankleR: [-0.4, 0.5, 0] },
+  // MUTE [batch item 9, real-skier ref]: lead hand crosses the body to the OPPOSITE
+  // ski's outside edge between toe piece and tip; skis cross into a slight X with
+  // noses tweaked apart; trail arm swings high behind for balance
+  mute:    { hips: [0.55, 0, 0.16], spine: [0.75, 0.5, -0.22], neck: [-0.6, -0.42, 0.05], shoulderL: [-1.15, 0, 1.25], shoulderR: [2.1, 0.55, -0.5], elbowL: [-0.2, 0, 0], elbowR: [-0.2, 0, 0], hipL: [-1.5, 0.45, 0.14], hipR: [-1.3, 0.45, -0.04], kneeL: [2.0, 0, 0], kneeR: [1.8, 0, 0], ankleL: [-0.4, 0.62, 0], ankleR: [-0.4, 0.62, 0] },
   // SHIFTY: the skis swing from the ANKLES/feet — hips barely rotate, torso counters
   shifty:  { hips: [0.15, 0, 0], spine: [0.25, -0.4, 0], neck: [-0.25, 0.38, 0], shoulderL: [0.3, 0, 1.1], shoulderR: [0.3, 0, -1.1], elbowL: [-0.5, 0, 0], elbowR: [-0.5, 0, 0], hipL: [-0.6, 0.28, 0], hipR: [-0.6, 0.28, 0], kneeL: [1.0, 0, 0], kneeR: [1.0, 0, 0], ankleL: [-0.4, 0.62, 0], ankleR: [-0.4, 0.62, 0] },
   // JAPAN (unlockable): back leg folded hard behind, opposite hand reaching back
   // across to it — the classic tweaked look
   japan:   { hips: [0.35, 0, 0.15], spine: [0.5, 0.3, -0.2], neck: [-0.4, -0.25, 0], shoulderL: [0.3, 0, 1.05], shoulderR: [-1.7, 0.3, -0.3], elbowL: [-0.45, 0, 0], elbowR: [-0.2, 0, 0], hipL: [-1.0, 0, 0.05], hipR: [0.3, 0.4, -0.35], kneeL: [1.5, 0, 0], kneeR: [2.5, 0, 0], ankleL: [-0.4, 0, 0], ankleR: [0.3, 0, 0] },
   // TAIL (unlockable): reach back to the tail of one ski, tails swept up
-  tail:    { hips: [0.3, 0, 0], spine: [0.45, -0.5, 0.1], neck: [-0.35, 0.45, 0], shoulderL: [-0.6, 0, 1.0], shoulderR: [-2.1, 0, -0.45], elbowL: [-0.35, 0, 0], elbowR: [-0.1, 0, 0], hipL: [-0.65, 0, 0], hipR: [-1.5, 0, 0], kneeL: [0.9, 0, 0], kneeR: [2.2, 0, 0], ankleL: [-0.35, 0, 0], ankleR: [0.65, 0, 0] },
+  // TAIL [batch item 5, ref]: trailing hand reaches back-down to the tail behind the
+  // boot, knees pull the skis up hard, lead arm punches out-forward for balance
+  tail:    { hips: [0.38, 0, 0], spine: [0.52, -0.62, 0.12], neck: [-0.42, 0.52, 0], shoulderL: [-0.95, 0, 1.15], shoulderR: [-2.25, 0, -0.5], elbowL: [-0.25, 0, 0], elbowR: [-0.05, 0, 0], hipL: [-0.78, 0, 0], hipR: [-1.62, 0, 0], kneeL: [1.05, 0, 0], kneeR: [2.3, 0, 0], ankleL: [-0.35, 0, 0], ankleR: [0.72, 0, 0] },
   // TRUCK DRIVER (unlockable): both hands on both tips, deep fold
   truck:   { hips: [0.55, 0, 0], spine: [0.8, 0, 0], neck: [-0.65, 0, 0], shoulderL: [1.3, 0, 0.4], shoulderR: [1.3, 0, -0.4], elbowL: [-0.1, 0, 0], elbowR: [-0.1, 0, 0], hipL: [-1.5, 0, 0], hipR: [-1.5, 0, 0], kneeL: [2.1, 0, 0], kneeR: [2.1, 0, 0], ankleL: [-0.3, 0, 0], ankleR: [-0.3, 0, 0] },
   // ASYMMETRIC harlaut fold: lead arm reaches across, trail arm hangs back-low,
@@ -2133,6 +2207,10 @@ function updateVisuals(dt) {
       // controlled swap: a soft unweight while the body pivots — legs extend
       // through the middle of the turn, then settle back into the slide
       if (g && g.swapAnim > 0) setTargets(POSES.pop, Math.sin(Math.PI * Math.min(1, g.swapAnim / 0.45)) * 0.5);
+      // SKI SCISSOR [batch item 8, ref]: through the swap the skis shear across the
+      // rail line in opposite directions — a continuous weighted pivot, never a snap
+      const swA = g && g.swapAnim > 0 ? Math.sin(Math.PI * Math.min(1, g.swapAnim / 0.45)) : 0;
+      airSkiL = 0.42 * swA; airSkiR = -0.42 * swA;
     }
   }
   else if (st.mode === 'air') {
@@ -2228,7 +2306,11 @@ function updateVisuals(dt) {
   } else {
     // ground: glide/tuck/brake/load + carve lean
     if (st.charge >= 0) {
-      setTargets(POSES.load);
+      // PROGRESSIVE CROUCH [batch item 7]: sinks deeper the longer the load;
+      // the release extension comes from the pop/throw on takeoff
+      const cf0 = Math.min(1, st.charge / SIM.TUNE.chargeMax);
+      setTargets(POSES.glide);
+      setTargets(POSES.load, 0.32 + 0.68 * cf0);
       // WINDUP: charging while holding a turn coils the body AGAINST the coming
       // spin — torso twists away, both arms sweep to the opposite side, deeper
       // the longer the charge — so the release reads as a real throw
@@ -2240,6 +2322,12 @@ function updateVisuals(dt) {
           spine: [0, -0.6 * w2, 0], hips: [0, -0.18 * w2, 0], neck: [0, 0.5 * w2, 0],
           shoulderL: [0.15, 0, -0.55 * w2], shoulderR: [0.15, 0, -0.55 * w2],
         });
+        // SWITCH WIND-UP [batch item 1, ref]: deeper coil — arms wrap and cock,
+        // head buries over the trailing shoulder, knees compress into the load
+        if (st.switchStance) { const aw = Math.abs(w2);
+          addTargets({ neck: [0, 0.45 * Math.sign(w2), 0], spine: [0.08 * aw, -0.3 * w2, 0],
+            elbowL: [-0.55 * aw, 0, 0], elbowR: [-0.55 * aw, 0, 0],
+            kneeL: [0.3 * aw, 0, 0], kneeR: [0.3 * aw, 0, 0], hips: [0.1 * aw, 0, 0] }); }
       }
     }
     else if (input.tuck) setTargets(POSES.tuck);
@@ -2269,21 +2357,23 @@ function updateVisuals(dt) {
       while (leadV < -Math.PI) leadV += 2 * Math.PI;
     }
     const leadN = Math.max(-1, Math.min(1, leadV / 0.52)); // -1..1 edge amount
+    carveEdgeG = st.mode === 'ground' ? leadN : 0; carveSpdG = hspd; // -> spray emitter
     const lean = -leadN * Math.min(0.55, 0.15 + hspd * 0.02);
     // ANGULATION [user]: real carving stacks the chest — the pelvis and legs
     // bank INTO the arc while the spine counters back so the shoulders stay
     // level and the upper body reads solid, not swaying with the ski
     const edge = Math.abs(leadN);
-    addTargets({
-      hips: [0, 0, lean * 1.05],                          // pelvis drives the bank
-      spine: [0.05 * edge, -leadN * 0.2, -lean * 0.52],   // chest counters to level
-      neck: [0, -leadN * 0.3, -lean * 0.3],               // eyes level down the hill
-      shoulderL: [0.1 * edge, 0, 0.14 * edge],            // arms widen a touch and HOLD
+    addTargets({ // [batch item 6, ref]: hips sink low INTO the arc, knees drive laterally,
+      // chest stays tall over the outside ski — sharper edge = deeper commit
+      hips: [0.1 * edge, 0, lean * 1.18],
+      spine: [0.05 * edge, -leadN * 0.2, -lean * 0.55],
+      neck: [0, -leadN * 0.3, -lean * 0.3],
+      shoulderL: [0.1 * edge, 0, 0.14 * edge],
       shoulderR: [0.1 * edge, 0, -0.14 * edge],
       elbowL: [-0.14 * edge, 0, 0], elbowR: [-0.14 * edge, 0, 0],
-      kneeL: [leadN < 0 ? 0.3 : 0.05 * edge, 0, -lean * 0.22],
-      kneeR: [leadN > 0 ? 0.3 : 0.05 * edge, 0, -lean * 0.22],
-      hipL: [0, 0, lean * 0.18], hipR: [0, 0, lean * 0.18], // knees angulate with the pelvis
+      kneeL: [0.3 * edge + (leadN < 0 ? 0.24 : 0), 0, -lean * 0.26],
+      kneeR: [0.3 * edge + (leadN > 0 ? 0.24 : 0), 0, -lean * 0.26],
+      hipL: [-0.12 * edge, 0, lean * 0.2], hipR: [-0.12 * edge, 0, lean * 0.2],
     });
     { // slope-adaptive body composition
       const dirS2 = st.vel.s >= 0 ? 1 : -1;
@@ -2304,7 +2394,10 @@ function updateVisuals(dt) {
     }
     const stS = STYLE().stance - 1;
     if (stS !== 0) addTargets({ hipL: [-stS * 0.35, 0, 0], hipR: [-stS * 0.35, 0, 0], kneeL: [stS * 0.6, 0, 0], kneeR: [stS * 0.6, 0, 0], hips: [stS * 0.12, 0, 0], ankleL: [-stS * 0.2, 0, 0], ankleR: [-stS * 0.2, 0, 0] });
-    if (st.switchStance) addTargets({ neck: [0, 0.95, 0], spine: [0, 0.3, 0] }); // look over the shoulder
+    if (st.switchStance) addTargets({ // [batch item 1, ref]: twisted torso, head back over the shoulder, arms wide + trailing
+      neck: [-0.05, 1.0, 0], spine: [0.06, 0.44, 0], hips: [0.02, 0.14, 0],
+      shoulderL: [0.12, 0, 0.5], shoulderR: [0.12, 0, -0.5], elbowL: [-0.3, 0, 0], elbowR: [-0.3, 0, 0],
+    });
     // NOSE BUTTER [R]: athletic stacked press — ~45° ankle / 45° knee / 45° hip
     // flexion, chest UP, arms winged for balance. The press comes from the legs
     // driving the tips, not from folding at the waist.
@@ -2442,6 +2535,10 @@ function updateVisuals(dt) {
   const fovT = 56 + Math.min(10, spd * 0.35);
   camera.fov = damp(camera.fov, fovT, 3, dt);
   camera.updateProjectionMatrix();
+  // the sun's shadow box rides along with the skier [batch item 4]
+  sun.position.set(p.l + SUN_DIR.x * 60, p.y + SUN_DIR.y * 60, -p.s + SUN_DIR.z * 60);
+  sun.target.position.set(p.l, p.y, -p.s);
+  sun.target.updateMatrixWorld();
 
   // --- HUD ---
   els.speed.textContent = `${Math.round(spd * 3.6)} ${STR.speedUnit}`;
@@ -2811,6 +2908,22 @@ function frame(now) {
   watchRestart();
   SND.update(sim);
   updateVisuals(ft / 1000);
+  { // carve spray emission [batch item 11]
+    const dt2 = ft / 1000;
+    const e = Math.abs(carveEdgeG);
+    if (sim.mode === 'ground' && e > 0.22 && carveSpdG > 5) {
+      const side = Math.sign(carveEdgeG);
+      const n = Math.min(6, 1 + Math.floor(e * carveSpdG * 0.2));
+      for (let i = 0; i < n; i++) {
+        spraySpawn(
+          sim.pos.l - side * (0.3 + Math.random() * 0.25), sim.pos.y + 0.05, -sim.pos.s + (Math.random() - 0.5) * 0.7,
+          -side * (1.2 + Math.random() * 2.0 + carveSpdG * 0.07),
+          1.3 + Math.random() * 2.2 + e * carveSpdG * 0.1,
+          -(sim.vel.s * 0.25) + (Math.random() - 0.5) * 1.2);
+      }
+    }
+    sprayTick(dt2);
+  }
   renderer.render(scene, camera);
   if (dev) {
     frames++;

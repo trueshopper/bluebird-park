@@ -154,30 +154,50 @@ export const MAPS = {
       [300, 0.18], [392, 0.2], [395, 0.55], [400, 0.55], [404, 0.2],
       [428, 0.26], [436.3, 0.3], [437, 1.5], [446, 1.5], [446.7, 0.48],
       [472, 0.3], [520, 0.27], [900, 0.23], // steeper in-runs feed the taller line
-      [918, 0.06], [950, 0.17], [1130, 0.12],
+      [918, 0.21], [950, 0.22], [1130, 0.12], // steady pitch feeds the knuckle garden [user]
       [1170, 0.04], [1225, -0.08], [1320, -0.16],
     ],
     kickers: [
-      { s0: 100, La: 12, A: 3.0, T: 11, Ld: 13, off: 0,  name: 'S' },
+      { s0: 95,  La: 11, A: 2.8, T: 10, Ld: 12, off: 0,  name: 'S' },
+      { s0: 142, La: 15, A: 4.0, T: 13, Ld: 15, off: 0,  name: 'MED' },   // medium with a knuckle run-up rail beside it
+      // the STREAM JUMP LINE: each table launches the line across the creek,
+      // landing on the far bank [user]
       { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, name: 'M' },
       { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  name: 'L' },
       { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, name: 'XL' },
-      { s0: 990, La: 16, A: 4.4, T: 34, Ld: 16, off: 0,  name: 'LODGE' },
+      // KNUCKLE GARDEN finale [user]: jumps with rails living ON the knuckle run-ups
+      { s0: 905, La: 14, A: 4.0, T: 8, Ld: 15, off: -8, name: 'KG1' },
+      { s0: 960, La: 15, A: 4.4, T: 8, Ld: 16, off: 6,  name: 'KG2' },
+      { s0: 1014, La: 16, A: 4.8, T: 9, Ld: 17, off: -4, name: 'KG3' },
+      // STEP-UP [user: unique to bluebird]: pop the lip, land ON TOP of the block
+      { s0: 878, La: 12, A: 3.4, T: 6, Ld: 10, off: 10, name: 'STEPUP' },
+      // small jumps INSIDE the crystal cave [user]
+      { s0: 285, La: 9, A: 2.4, T: 8, Ld: 9, off: -4, name: 'CAVE1' },
+      { s0: 355, La: 10, A: 2.6, T: 8, Ld: 10, off: 6, name: 'CAVE2' },
     ],
     rails: [
-      { s0: 150, s1: 172, off: -4,  h: 0.70, w: 0.35, type: 'rail' },
+      { s0: 131, s1: 141, off: -6,  h: 0.65, w: 0.35, type: 'rail', lip: true },  // MED knuckle run-up bar [user]
       { s0: 250, s1: 264, off: 8,   h: 0.45, w: 0.55, type: 'box' },
-      { s0: 320, s1: 334, off: -6,  h: 0.50, w: 0.35, type: 'rainbow', arch: 1.0 },
+      { s0: 320, s1: 334, off: -6,  h: 0.50, w: 0.35, type: 'rainbow', arch: 1.0 }, // cave rainbow [user: keep]
       { s0: 388, s1: 402, off: 5,   h: 0.55, w: 0.35, type: 'kink' },
-      { s0: 414, s1: 436, off: 0,   h: 0.80, w: 0.50, type: 'launch' },
+      { s0: 414, s1: 436, off: 0,   h: 0.80, w: 0.50, type: 'wave' },  // cave-exit cannon -> WAVY rail off the falls cliff [user]
       { s0: 630, s1: 655, off: 10,  h: 0.70, w: 0.35, type: 'wave' },
       { s0: 770, s1: 800, off: -11, h: 1.05, w: 0.35, type: 'deck' },
-      { s0: 848, s1: 868, off: 11,  h: 0.80, w: 0.55, type: 'cannon' },
-      { s0: 1000, s1: 1024, off: 0, h: 4.6, w: 0.8, type: 'ridge' },
+      { s0: 893, s1: 903, off: -14, h: 0.65, w: 0.35, type: 'rail', lip: true },  // KG1 knuckle run-up bar
+      { s0: 948, s1: 958, off: 12,  h: 0.60, w: 0.55, type: 'box', lip: true },   // KG2 knuckle run-up box
+      { s0: 1002, s1: 1012, off: -10, h: 0.65, w: 0.35, type: 'rail', lip: true },  // KG3 knuckle run-up bar
+      { s0: 1050, s1: 1066, off: 14, h: 0.6, w: 0.4, type: 'kink' },               // stair-set out, off the garden lane [unique]
     ],
-    cave: { s0: 240, s1: 436, r: 15 },
-    lodge: { s0: 1000, s1: 1024, halfW: 6, wallH: 2.9, ridgeH: 4.6 },
+    // taller cave [user] + small in-cave jumps live in kickers below
+    cave: { s0: 240, s1: 436, r: 18 },
+    lodge: null, // the lodge gap retired for the knuckle garden
     rockBands: [[182, 26], [432, 30]],
+    fins: [
+      // STEP-UP landing block [unique]: flat-top platform you pop ONTO
+      { s0: 892, l: 10, len: 12, h: 3.2, w: 4.5, flat: 4 },
+      // WALL RIDE [unique]: long carved bank beside the garden line
+      { s0: 958, l: -20, len: 22, h: 3.6, w: 2.6 },
+    ],
     zones: [[48, 'zoneGlades'], [172, 'zoneCliff'], [225, 'zoneRails'], [424, 'zoneCliff'], [516, 'zoneJumps'], [955, 'zoneLodge']],
   },
   lax: {
@@ -531,6 +551,12 @@ function clearOfFeatures(s, l) {
   return true;
 }
 
+// stream path through the forest section (bluebird only) [user]
+export const STREAM = { s0: 452, s1: 872 };
+export function streamL(s) {
+  const t = (s - STREAM.s0);
+  return centerline(s) - 15 + 11 * Math.sin(t * 0.019) + 4 * Math.sin(t * 0.043 + 1.2);
+}
 export function buildDecor(seed) {
   const rnd = mulberry32(seed);
   const trees = [], rocks = [];
@@ -555,13 +581,27 @@ export function buildDecor(seed) {
       }
     }
   }
-  // rock outcrops studding both cliff bands + boulders below them
+  // rock outcrops studding both cliff bands + boulders below them — but the
+  // LANDING CORRIDORS below the cliffs stay perfectly clear [user]
   for (const band of ACTIVE.rockBands) {
     for (let i = 0; i < 24; i++) {
       const s = band[0] + rnd() * band[1];
       const l = centerline(s) + (rnd() - 0.5) * 46;
       if (CAVE && s > CAVE.s0 && s < CAVE.s1 && Math.abs(l - centerline(s)) < 16) continue; // cave interior stays clear
+      if (Math.abs(l - centerline(s)) < 15) continue; // cliff + rail landings: no rocks in the lane
       if (clearOfFeatures(s, l)) rocks.push({ s, l, sc: 0.9 + rnd() * 2.0, y: terrainH(s, l) });
+    }
+  }
+  if (MAP_ID === 'bluebird') {
+    // FOREST AROUND THE STREAM [user]: dense banks of trees hugging the creek
+    const r2 = mulberry32(seed + 7);
+    for (let s = STREAM.s0 + 6; s < STREAM.s1; s += 3.2) {
+      for (const side of [-1, 1]) {
+        if (r2() < 0.72) {
+          const l = streamL(s) + side * (4.5 + r2() * 7);
+          if (clearOfFeatures(s, l) && Math.abs(l - centerline(s)) < 44) trees.push({ s: s + r2() * 2.4, l, sc: 0.7 + r2() * 0.85, y: terrainH(s, l) });
+        }
+      }
     }
   }
   return { trees, rocks };

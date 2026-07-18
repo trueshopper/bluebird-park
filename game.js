@@ -675,6 +675,85 @@ const rndTerrain = SIM.mulberry32(777);
     });
   }
 
+  // ---------------- CAVE MOUNTAIN [user]: the crystal cave is BUILT INTO a
+  // real mountain — snow-capped shell over the whole tunnel, trees on top ----
+  if (SIM.CAVE && SIM.MAP_ID === 'bluebird') {
+    const CV = SIM.CAVE;
+    const mid = (CV.s0 + CV.s1) / 2;
+    const cl = SIM.centerline(mid);
+    const baseY = SIM.terrainH(mid, cl);
+    const a2 = (CV.s1 - CV.s0) / 2 + 26, b2 = 40, hM = 30;
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: 0xf2f4f7, map: rep(TEX.snowMap, 6, 6), bumpMap: rep(TEX.snowBump, 6, 6), bumpScale: 0.4 }));
+    dome.scale.set(b2, hM, a2);
+    dome.position.set(cl, baseY - 2, -mid);
+    scene.add(dome);
+    // rocky skirt so the shell reads as stone at the portals
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.12, 0.5, 24, 1, true),
+      new THREE.MeshLambertMaterial({ color: 0x4a4f63, map: rep(TEX.rockMap, 5, 1), bumpMap: rep(TEX.rockBump, 5, 1), bumpScale: 0.35 }));
+    skirt.scale.set(b2 * 0.98, 14, a2 * 0.98);
+    skirt.position.set(cl, baseY + 3.4, -mid);
+    scene.add(skirt);
+    // snow-dusted TREES growing on the mountain top [user]
+    const rT = SIM.mulberry32(919);
+    const domeTrees = [];
+    for (let i = 0; i < 46; i++) {
+      const ds = (rT() * 2 - 1) * 0.82, dl = (rT() * 2 - 1) * 0.72;
+      const rr = ds * ds + dl * dl;
+      if (rr > 0.8) continue;
+      const y = baseY - 2 + hM * Math.sqrt(Math.max(0.05, 1 - rr)) - 0.4;
+      domeTrees.push([cl + dl * b2, y, -(mid + ds * a2), 0.55 + rT() * 0.6]);
+    }
+    for (const [tx, ty, tz, tsc] of domeTrees) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
+      trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
+      cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }));
+      cap.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap);
+    }
+  }
+
+  // ---------------- WATERFALL + STREAM [user]: the falls pour off the cave
+  // cliff and feed a creek winding through the forest jump line ----------------
+  if (SIM.MAP_ID === 'bluebird' && SIM.streamL) {
+    const wfS = 437;
+    const wfL = SIM.streamL(SIM.STREAM.s0 + 2);
+    const topY = SIM.terrainH(wfS - 3, wfL);
+    const botY = SIM.terrainH(SIM.STREAM.s0 + 2, wfL);
+    const wMat = new THREE.MeshLambertMaterial({ color: 0x7fc4e8, transparent: true, opacity: 0.82 });
+    const wMat2 = new THREE.MeshLambertMaterial({ color: 0xd9f0fa, transparent: true, opacity: 0.65 });
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(5.2, topY - botY + 2), wMat);
+    fall.position.set(wfL, (topY + botY) / 2 + 0.6, -(wfS + 4.5));
+    scene.add(fall);
+    const fall2 = new THREE.Mesh(new THREE.PlaneGeometry(3.4, topY - botY + 1), wMat2);
+    fall2.position.set(wfL + 0.6, (topY + botY) / 2 + 0.9, -(wfS + 4.2));
+    fall2.rotation.y = 0.15;
+    scene.add(fall2);
+    const foam = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.6, 0.3, 14), wMat2);
+    foam.position.set(wfL, botY + 0.12, -(SIM.STREAM.s0 + 3));
+    scene.add(foam);
+    // the creek: a ribbon following streamL(s) hugging the terrain
+    const pts = [];
+    for (let s2 = SIM.STREAM.s0; s2 <= SIM.STREAM.s1; s2 += 3) pts.push(s2);
+    const n2 = pts.length;
+    const pos2 = new Float32Array(n2 * 2 * 3);
+    const idx = [];
+    for (let i = 0; i < n2; i++) {
+      const s2 = pts[i], l2 = SIM.streamL(s2);
+      const y2 = SIM.terrainH(s2, l2) + 0.07;
+      pos2[i * 6] = l2 - 1.5; pos2[i * 6 + 1] = y2; pos2[i * 6 + 2] = -s2;
+      pos2[i * 6 + 3] = l2 + 1.5; pos2[i * 6 + 4] = y2; pos2[i * 6 + 5] = -s2;
+      if (i > 0) { const a3 = (i - 1) * 2; idx.push(a3, a3 + 1, a3 + 2, a3 + 1, a3 + 3, a3 + 2); }
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(pos2, 3));
+    sg.setIndex(idx);
+    sg.computeVertexNormals();
+    const stream = new THREE.Mesh(sg, new THREE.MeshLambertMaterial({ color: 0x6db8e0, transparent: true, opacity: 0.85 }));
+    scene.add(stream);
+  }
+
   // ---------------- THE LODGE: grand timber ski lodge under the gap jump ----------------
   if (SIM.LODGE) {
     const L = SIM.LODGE;

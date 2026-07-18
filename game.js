@@ -1116,13 +1116,15 @@ const SKIS = R1.SKIS;
 scene.add(rig);
 
 // ---------------- PROGRESSION: XP, levels, unlockable grabs / kits / riders ----------------
+// ik: [hand, ski, local grab point on that ski] — the hand is IK-pulled onto
+// the actual ski each frame so every grab CONNECTS regardless of rider fit
 const GRAB_DEFS = {
-  safety: { pose: 'safety', sl: -0.08, sr: -0.12, label: 'Safety' },
-  mute:   { pose: 'mute',   sl: -0.38, sr: -0.28, label: 'Mute' },
+  safety: { pose: 'safety', sl: -0.08, sr: -0.12, label: 'Safety', ik: [['R', 'R', 0.055, 0.04, 0.02]] },
+  mute:   { pose: 'mute',   sl: -0.38, sr: -0.28, label: 'Mute', ik: [['R', 'L', -0.06, 0.05, 0.28]] }, // cross-grab: outside edge by the toe piece
   shifty: { pose: 'shifty', sl: 0.05,  sr: 0.05,  label: 'Shifty' },
-  japan:  { pose: 'japan',  sl: -0.1,  sr: 1.15,  label: 'Japan' },
-  tail:   { pose: 'tail',   sl: 0.85,  sr: 1.45,  label: 'Tail Grab' },
-  truck:  { pose: 'truck',  sl: -1.05, sr: -1.05, label: 'Truck Driver' },
+  japan:  { pose: 'japan',  sl: -0.1,  sr: 1.15,  label: 'Japan', ik: [['R', 'L', 0.05, 0.05, -0.3]] },
+  tail:   { pose: 'tail',   sl: 0.85,  sr: 1.45,  label: 'Tail Grab', ik: [['R', 'R', 0.045, 0.05, -0.7]] }, // behind the boot
+  truck:  { pose: 'truck',  sl: -1.05, sr: -1.05, label: 'Truck Driver', ik: [['L', 'L', 0, 0.05, 0.66], ['R', 'R', 0, 0.05, 0.66]] },
 };
 const OUTFITS = {
   classic:  { label: 'Classic Ember', kit: null },
@@ -1426,6 +1428,8 @@ function dressRider(R = R1) {
     { // GLOVE with real shape: mitt palm, thumb, and a gauntlet cuff
       const palm = bare(add(J3['elbow' + side], new THREE.BoxGeometry(0.072, 0.088, 0.105), gloves.color, 0, -0.288, 0.014));
       palm.rotation.x = -0.18;
+      if (!R.HANDS) R.HANDS = {};
+      R.HANDS[side] = palm; // IK anchor: pull THIS onto the ski during grabs
       const thumb = bare(add(J3['elbow' + side], new THREE.CapsuleGeometry(0.019, 0.042, 3, 6), gloves.color, (side === 'L' ? 1 : -1) * 0.046, -0.268, 0.035));
       thumb.rotation.z = (side === 'L' ? -0.85 : 0.85);
       add(J3['elbow' + side], new THREE.CylinderGeometry(0.05, 0.062, 0.055, 10), gloves.color, 0, -0.242, 0); // gauntlet cuff
@@ -2147,7 +2151,7 @@ function showFinish() {
 const _up = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _q4 = new THREE.Quaternion(), _q5 = new THREE.Quaternion();
 const _axisZ = new THREE.Vector3(0, 0, 1);
 // cork axes: ~35° off vertical — mostly spin with a dipped shoulder (corked, not side-flipped)
-const CORK_TILT = 0.62;
+const CORK_TILT = 0.785; // 45deg: body-length parallel to the ground mid-cork [batch 2]
 const AXIS_MISTY = new THREE.Vector3(0, Math.cos(CORK_TILT), -Math.sin(CORK_TILT)).normalize();
 const AXIS_CORK = new THREE.Vector3(0, Math.cos(CORK_TILT), Math.sin(CORK_TILT)).normalize();
 const _e = new THREE.Euler(), _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _camT = new THREE.Vector3(), _look = new THREE.Vector3(), _lookCur = new THREE.Vector3(0, 0, -30);
@@ -2155,6 +2159,40 @@ const _axisX = new THREE.Vector3(1, 0, 0), _axisY = new THREE.Vector3(0, 1, 0);
 const _snorm = { s: 0, l: 0, y: 1 };
 let smoothUp = new THREE.Vector3(0, 1, 0);
 let visYaw = 0, bailSpin = 0, airSkiL = 0, airSkiR = 0, butterLift = 0, lastSpinSign = 1;
+let grabIKReq = null; // set by the air pose branch; consumed after visuals update
+
+// ---- GRAB IK [user request]: two-bone CCD that pulls the grabbing hand onto
+// the ACTUAL grab point of the ACTUAL ski, so every grab connects for every
+// rider fit. Runs after pose blending; the base pose supplies the style, the
+// IK supplies the contact. Weighted by the grab ease so it ramps in naturally.
+const _ikA = new THREE.Vector3(), _ikB = new THREE.Vector3(), _ikT = new THREE.Vector3(), _ikJP = new THREE.Vector3();
+const _ikQd = new THREE.Quaternion(), _ikQs = new THREE.Quaternion(), _ikQp = new THREE.Quaternion(), _ikQpi = new THREE.Quaternion(), _ikQx = new THREE.Quaternion();
+function applyGrabIK(R, req) {
+  R.rig.updateMatrixWorld(true);
+  for (const [hand, skiSide, px, py, pz] of req.ik) {
+    const palm = R.HANDS && R.HANDS[hand], ski = R.SKIS && R.SKIS[skiSide];
+    if (!palm || !ski) continue;
+    _ikT.set(px, py, pz).applyMatrix4(ski.matrixWorld); // world grab point (ski already posed)
+    for (let pass = 0; pass < 2; pass++) {
+      for (const jn of ['elbow' + hand, 'shoulder' + hand]) {
+        const j = R.J[jn];
+        if (!j) continue;
+        _ikJP.setFromMatrixPosition(j.matrixWorld);
+        _ikA.setFromMatrixPosition(palm.matrixWorld).sub(_ikJP);
+        const toT = _ikB.copy(_ikT).sub(_ikJP);
+        if (_ikA.lengthSq() < 1e-6 || toT.lengthSq() < 1e-6) continue;
+        _ikQd.setFromUnitVectors(_ikA.normalize(), toT.normalize());
+        const ang = 2 * Math.acos(Math.min(1, Math.abs(_ikQd.w)));
+        const k2 = ang > 1e-4 ? Math.min(1, (0.65 * req.w) * Math.min(ang, 0.55) / ang) : 0;
+        _ikQs.identity().slerp(_ikQd, k2);
+        j.parent.getWorldQuaternion(_ikQp);
+        _ikQpi.copy(_ikQp).invert();
+        j.quaternion.premultiply(_ikQx.copy(_ikQpi).multiply(_ikQs).multiply(_ikQp));
+        j.updateMatrixWorld(true); // refresh the chain (palm included) for the next joint
+      }
+    }
+  }
+}
 const camTrail = []; let swayT = 0; // the follow-filmer's memory of the rider's line
 let settleT = 0; // off-axis landings get ridden back upright, not snapped
 // ELITE AIR STYLE [style-bible]: every air gets its own tiny variation — no two
@@ -2225,10 +2263,19 @@ function updateVisuals(dt) {
       const b = 1.6, u = x - 1;
       return 1 + (b + 1) * u * u * u + b * u * u; // reach with a settle-overshoot
     };
-    if (input.grab3) { const gw = gEase(a.shiftyT); setTargets(POSES.airNeut); setTargets(POSES.shifty, gw); airSkiL = 0.05 * gw; airSkiR = 0.05 * gw; }
-    else if (input.grab1) { const gw = gEase(a.grab1T); setTargets(POSES.airNeut); setTargets(POSES.safety, gw); airSkiL = -0.08 * gw; airSkiR = -0.12 * gw; }
-    else if (input.grab2) { const gw = gEase(a.grab2T); setTargets(POSES.airNeut); setTargets(POSES.mute, gw); airSkiL = -0.38 * gw; airSkiR = -0.28 * gw; }
-    else if (flipping) {
+    // the pose AND ski tweak follow whatever grab is BOUND to the key (fixes
+    // hardcoded safety/mute/shifty poses ignoring the player's binds)
+    const gSlot = input.grab1 ? 0 : input.grab2 ? 1 : input.grab3 ? 2 : -1;
+    grabIKReq = null;
+    if (gSlot >= 0) {
+      const gd = GRAB_DEFS[SLOT_BINDS[gSlot]] || GRAB_DEFS.safety;
+      const gt = gSlot === 0 ? a.grab1T : gSlot === 1 ? a.grab2T : a.shiftyT;
+      const gw = gEase(gt);
+      setTargets(POSES.airNeut); setTargets(POSES[gd.pose] || POSES.safety, gw);
+      airSkiL = gd.sl * gw; airSkiR = gd.sr * gw;
+      if (gd.ik) grabIKReq = { ik: gd.ik, w: gw };
+    }
+    if (gSlot < 0 && flipping) {
       // HARLAUT PHASING: fold compact through the middle of the rotation, open
       // up to spot the landing — the shape breathes with the trick
       const src = a.comboAxis && Math.abs(a.corkVel) > 1.2 ? a.corkA : a.pitchAccum;
@@ -2238,7 +2285,7 @@ function updateVisuals(dt) {
       setTargets(POSES.flip, Math.min(1, (0.3 + 0.7 * fold) * STYLE().fold));
       airSkiL = 0; airSkiR = 0;
     }
-    else { setTargets(POSES.airNeut); airSkiL = 0; airSkiR = 0; }
+    else if (gSlot < 0) { setTargets(POSES.airNeut); airSkiL = 0; airSkiR = 0; }
     // COUNTER-ROTATION (the harlaut loose look): legs lead, torso counters hard,
     // head stays spotting the landing — upper and lower body read independently
     const w = Math.max(-1.3, Math.min(1.3, ((a.yawVel + a.corkVel * 0.7) / 4) * STYLE().counter));
@@ -2258,11 +2305,17 @@ function updateVisuals(dt) {
     // visible — easing out as the counter-rotated steeze takes over
     if (throwT > 0) {
       throwT = Math.max(0, throwT - dt);
-      const k = Math.pow(throwT / 0.45, 1.5) * STYLE().arms;
+      // LAUNCH SEQUENCE [batch 2]: the head turns into the spin FIRST, the
+      // torso winds up after it, and the legs trail last — catching up as the
+      // throw resolves. Top-down rotation, like a real skier.
+      const p2 = throwT / 0.45, u = 1 - p2;
+      const d2 = throwDir, aS = STYLE().arms;
       addTargets({
-        spine: [0, 0.7 * throwDir * k, 0], hips: [0, 0.2 * throwDir * k, 0],
-        neck: [0, -0.4 * throwDir * k, 0],
-        shoulderL: [0, 0, 0.7 * throwDir * k], shoulderR: [0, 0, 0.7 * throwDir * k],
+        neck: [0, 0.7 * d2 * Math.pow(p2, 0.5), 0],                                // head: instant lead, eases off
+        spine: [0, 0.45 * d2 * Math.sin(Math.PI * Math.min(1, u / 0.75)), 0],      // torso: follows through the middle
+        hips: [0, -0.15 * d2 * p2, 0],
+        hipL: [0, -0.3 * d2 * Math.pow(p2, 1.3), 0], hipR: [0, -0.3 * d2 * Math.pow(p2, 1.3), 0], // legs: last to come around
+        shoulderL: [0, 0, 0.7 * d2 * Math.pow(p2, 1.5) * aS], shoulderR: [0, 0, 0.7 * d2 * Math.pow(p2, 1.5) * aS],
       });
     }
     // ---- ELITE AIR PHYSICS LAYER ----
@@ -2908,6 +2961,7 @@ function frame(now) {
   watchRestart();
   SND.update(sim);
   updateVisuals(ft / 1000);
+  if (grabIKReq && sim.mode === 'air') applyGrabIK(R1, grabIKReq); // hand meets ski, every time
   { // carve spray emission [batch item 11]
     const dt2 = ft / 1000;
     const e = Math.abs(carveEdgeG);

@@ -586,12 +586,12 @@ export const TUNE = {
   popBase: 0.95,       // modest launch: low peak height, float does the carrying [batch item 10]
   popCharge: 1.3,      // extra at full charge
   chargeMax: 0.5,      // s
-  yawRateMax: 4.85,     // rad/s in air — slightly slower per user: uncharged 360 ~1.4s
-  pitchRateMax: 4.85,   // flips follow the same clock
+  yawRateMax: 4.55,     // rad/s in air — max spin speed trimmed again [batch 2]
+  pitchRateMax: 4.55,   // flips follow the same clock
   rollRateMax: 4.6,    // (legacy, unused by combos)
-  corkRate: 4.85,      // rad/s about the tilted cork axis
+  corkRate: 4.55,      // rad/s about the tilted cork axis
   corkSnap: 4.5,       // rad/s snap-through to complete the rotation after release
-  corkTilt: 1.0,       // axis tilt from vertical (rad) — how inverted corks/mistys look
+  corkTilt: 0.785,     // 45° axis: mid-cork the body lies parallel to the ground [batch 2]
   rotAccel: 28.6,        // rad/s^2 ease for air rotation
   unwindRate: 3.6,     // rad/s auto-level for roll/tilt after combo release
   grindFriction: 0.018,
@@ -621,7 +621,7 @@ function trickResult(st, STRN) {
   // the ~57deg tilted cork axis tips the ski plane by less. Judge the landing
   // by the ACTUAL tilt: cos(tilt) = cos(theta) + cos^2(57)*(1-cos(theta)).
   const cr = corkRes * Math.PI / 180;
-  const corkTilt = Math.acos(Math.max(-1, Math.min(1, Math.cos(cr) + 0.297 * (1 - Math.cos(cr))))) * 180 / Math.PI;
+  const corkTilt = Math.acos(Math.max(-1, Math.min(1, Math.cos(cr) + 0.5 * (1 - Math.cos(cr))))) * 180 / Math.PI; // cos^2(45deg) axis geometry [batch 2]
   const rollRes = Math.max(Math.abs(rollDeg - nearestMult(rollDeg, 360)), corkDeg > 60 ? corkTilt * 0.82 : 0); // legs absorb the last of the tilt
   let pts = 0;
   const parts = [];
@@ -964,7 +964,8 @@ function airStep(st, dt, inp, STRN) {
     a.comboAxis = inp.tuck ? 'misty' : 'cork';
     // NO CAP [user]: hold the combo and keep corking — triples, quads, whatever
     // the airtime allows. Release still snap-resolves forward onto full marks.
-    corkT = dir * TUNE.corkRate * boost; // charge speeds the cork itself: 1x..2x
+    const ph = (Math.abs(a.corkA) % (2 * Math.PI)) / (2 * Math.PI);
+    corkT = dir * TUNE.corkRate * boost * (0.72 + 0.66 * ph); // slow entry, snap to finish [batch 2]
     comboYawT = 0;
   }
   else pitchT = ((inp.brake ? 1 : 0) - (inp.tuck ? 1 : 0)) * TUNE.pitchRateMax * boost; // S=back, W=front
@@ -1030,7 +1031,7 @@ function airStep(st, dt, inp, STRN) {
   // airs (a proper rise off a lip, or a big drop). Utility hops onto rails
   // stay crisp so the steel under you doesn't outrun your fall.
   const realAir = (a.apexY - a.startY > 1.1) || (a.startY - st.pos.y > 1.5);
-  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.4 : 0.78) : 1); // floaty airs: lighter gravity all flight, lightest at the apex [batch item 10]
+  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.38 : 0.74) : 1); // floaty airs, nudged lighter again [batch 2]
   const sp = speedOf(v);
   if (sp > 0.01) {
     const f = Math.max(0, (sp - 0.0014 * sp * sp * dt) / sp);

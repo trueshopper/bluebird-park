@@ -1727,6 +1727,25 @@ const dev = params.has('dev');
 // dev spawn: ?at=230 drops the run at s=230 on the centerline (verification tool)
 const devAt = Math.max(0, parseFloat(params.get('at') || '0') || 0);
 const GRABTEST = params.get('grabtest'); // dev pose-viewer: freeze a grab at the gate, full weight, slow spin
+// ---- PROFILER (?prof=1): per-subsystem CPU ms + renderer stats, rolling ----
+const PROF = params.has('prof') ? { t: {}, frames: 0, ftSum: 0, ftMax: 0, worst: [] } : null;
+function pT(k, f) {
+  if (!PROF) return f();
+  const t0 = performance.now();
+  const r = f();
+  PROF.t[k] = (PROF.t[k] || 0) + (performance.now() - t0);
+  return r;
+}
+if (PROF) window.__profReport = () => {
+  const n = Math.max(1, PROF.frames);
+  const out = { frames: n, avgFrameMs: +(PROF.ftSum / n).toFixed(2), fps: +(1000 / (PROF.ftSum / n)).toFixed(1), maxFrameMs: +PROF.ftMax.toFixed(1), buckets: {} };
+  let acc2 = 0;
+  for (const k in PROF.t) { const ms = PROF.t[k] / n; out.buckets[k] = +ms.toFixed(3); acc2 += ms; }
+  out.buckets.otherJS = +((PROF.ftSum / n) - acc2).toFixed(3); // browser/GPU-wait/compositing remainder
+  out.render = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures, programs: renderer.info.programs ? renderer.info.programs.length : 0 };
+  PROF.t = {}; PROF.frames = 0; PROF.ftSum = 0; PROF.ftMax = 0;
+  return JSON.stringify(out);
+};
 let devAtDone = false;
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -3079,7 +3098,8 @@ function frame(now) {
   last = now;
   acc += ft;
   perfTick(ft);
-  readInput();
+  if (PROF) { PROF.frames++; PROF.ftSum += ft; PROF.ftMax = Math.max(PROF.ftMax, ft); }
+  pT('input', readInput);
   if (devAt > 0 && !devAtDone && sim.mode === 'ground') {
     sim.pos.s = Math.min(devAt, SIM.TRACK_LEN - 30);
     sim.pos.l = SIM.centerline(sim.pos.s);
@@ -3089,17 +3109,17 @@ function frame(now) {
     camera.position.set(sim.pos.l, sim.pos.y + 2.6, -(sim.pos.s - 7));
     _lookCur.set(sim.pos.l, sim.pos.y + 0.9, -sim.pos.s - 9);
   }
-  while (acc >= STEP) {
-    SIM.simStep(sim, STEP / 1000, input, STR);
-    input.popEdge = false; input.restart = false; input.start = false; // edges fire once
-    acc -= STEP;
-  }
+  pT('physicsSim', () => {
+    while (acc >= STEP) {
+      SIM.simStep(sim, STEP / 1000, input, STR);
+      input.popEdge = false; input.restart = false; input.start = false; // edges fire once
+      acc -= STEP;
+    }
+  });
   sim.grabNames = SLOT_BINDS.map((g2) => GRAB_DEFS[g2].label);
-  drainEvents();
-  watchRestart();
-  SND.update(sim);
-  updateVisuals(ft / 1000);
-  if (grabIKReq && sim.mode === 'air') applyGrabIK(R1, grabIKReq); // hand meets ski, every time
+  pT('eventsAudio', () => { drainEvents(); watchRestart(); SND.update(sim); });
+  pT('animPoseIK', () => updateVisuals(ft / 1000));
+  if (grabIKReq && sim.mode === 'air') pT('grabIK', () => applyGrabIK(R1, grabIKReq));
   { // carve spray emission [batch item 11]
     const dt2 = ft / 1000;
     const e = Math.abs(carveEdgeG);
@@ -3114,9 +3134,9 @@ function frame(now) {
           -(sim.vel.s * 0.25) + (Math.random() - 0.5) * 1.2);
       }
     }
-    sprayTick(dt2);
+    pT('spray', () => sprayTick(dt2));
   }
-  renderer.render(scene, camera);
+  pT('renderSubmit', () => renderer.render(scene, camera));
   if (dev) {
     frames++;
     if (now - fpsAt >= 500) {

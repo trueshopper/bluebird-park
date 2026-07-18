@@ -679,36 +679,39 @@ const rndTerrain = SIM.mulberry32(777);
   // real mountain — snow-capped shell over the whole tunnel, trees on top ----
   if (SIM.CAVE && SIM.MAP_ID === 'bluebird') {
     const CV = SIM.CAVE;
-    const snowM = new THREE.MeshLambertMaterial({ color: 0xf2f4f7, map: rep(TEX.snowMap, 4, 4), bumpMap: rep(TEX.snowBump, 4, 4), bumpScale: 0.4 });
-    const rockM = new THREE.MeshLambertMaterial({ color: 0x4a4f63, map: rep(TEX.rockMap, 3, 2), bumpMap: rep(TEX.rockBump, 3, 2), bumpScale: 0.35 });
+    const snowM = new THREE.MeshLambertMaterial({ color: 0xe8ecf2, map: rep(TEX.snowMap, 4, 4), bumpMap: rep(TEX.snowBump, 4, 4), bumpScale: 0.4 });
     const rT = SIM.mulberry32(919);
-    // the mountain FOLLOWS the slope: overlapping shell segments down the cave,
-    // each seated on the local floor height — reads as one snow-capped ridge
+    // HOLLOW mountain over the tunnel: a raised snow vault ABOVE the rock arch
+    // plus sloped flanks running to the ground — the tunnel stays open inside
     const segStep = 20;
-    for (let sSeg = CV.s0 - 6; sSeg <= CV.s1 + 6; sSeg += segStep) {
+    for (let sSeg = CV.s0 - 4; sSeg <= CV.s1 + 4; sSeg += segStep) {
       const cl2 = SIM.centerline(sSeg);
       const fy = SIM.terrainH(sSeg, cl2);
-      const hM = 23 + rT() * 3;
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), snowM);
-      dome.scale.set(30 + rT() * 5, hM, segStep * 0.95);
-      dome.position.set(cl2 + (rT() - 0.5) * 3, fy - 1.5, -sSeg);
-      scene.add(dome);
-      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.14, 0.42, 18, 1, true), rockM);
-      skirt.scale.set(29, 13, segStep * 0.92);
-      skirt.position.set(cl2, fy + 2.6, -sSeg);
-      scene.add(skirt);
-      // snow-dusted trees on this stretch of the ridge top [user]
-      for (let i = 0; i < 4; i++) {
-        const dl = (rT() * 2 - 1) * 0.55, ds = (rT() * 2 - 1) * 0.4;
+      // roof vault: seated ABOVE the cave arch (arch top ~ fy + 14)
+      const roof = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), snowM);
+      roof.scale.set(30 + rT() * 4, 11 + rT() * 2.5, segStep * 1.0);
+      roof.position.set(cl2 + (rT() - 0.5) * 2, fy + 13.2, -sSeg);
+      scene.add(roof);
+      // sloped flanks: fill the SIDES so it reads as a mountain, not a pipe
+      for (const sd of [-1, 1]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), snowM);
+        wall.scale.set(13, 21, segStep * 1.02);
+        wall.position.set(cl2 + sd * 22.5, fy + 4.5, -sSeg);
+        wall.rotation.z = sd * 0.42; // leaning into the hill
+        scene.add(wall);
+      }
+      // snow-dusted trees along the ridge top [user]
+      for (let i = 0; i < 3; i++) {
+        const dl = (rT() * 2 - 1) * 0.5, ds = (rT() * 2 - 1) * 0.4;
         const rr = dl * dl + ds * ds;
-        const ty = fy - 1.5 + hM * Math.sqrt(Math.max(0.1, 1 - rr)) - 0.3;
+        const ty = fy + 13.2 + 12 * Math.sqrt(Math.max(0.12, 1 - rr)) - 0.3;
         const tx = cl2 + dl * 30, tz = -(sSeg + ds * segStep * 0.9);
         const tsc = 0.5 + rT() * 0.55;
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
         trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
         const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
         cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
-        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }));
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xe8ecf2 }));
         cap.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap);
       }
     }

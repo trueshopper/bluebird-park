@@ -486,22 +486,47 @@ const rndTerrain = SIM.mulberry32(777);
     const a = r * cols + q, b = a + 1, d = a + cols, e = d + 1;
     idx.push(a, b, d, b, e, d); // CCW from above — face normals up
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  g.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  // K Sessions is machine-groomed corduroy; the mountain runs keep wind-worked powder
+  // compute smooth normals ONCE over the full surface, then share every
+  // attribute across s-chunks — each chunk culls independently [perf pass]
+  const posAttr = new THREE.BufferAttribute(verts, 3);
+  const colAttr = new THREE.BufferAttribute(colors, 3);
+  const uvAttr = new THREE.BufferAttribute(uvs, 2);
+  const gFull = new THREE.BufferGeometry();
+  gFull.setAttribute('position', posAttr);
+  gFull.setIndex(idx);
+  gFull.computeVertexNormals();
+  const norAttr = gFull.attributes.normal;
   const GROOMED = SIM.MAP_ID === 'kimbo';
-  window.__terrain = new THREE.Mesh(g, new THREE.MeshLambertMaterial({
+  window.__terrainMat = new THREE.MeshLambertMaterial({
     vertexColors: true, flatShading: false,
     map: rep(GROOMED ? TEX.groomMap : TEX.snowMap, 1, 1),
     bumpMap: rep(GROOMED ? TEX.groomBump : TEX.snowBump, 1, 1),
     bumpScale: GROOMED ? 0.18 : 0.4,
-  }));
-  window.__terrain.receiveShadow = true;
-  scene.add(window.__terrain);
+  });
+  const N_CHUNKS = 10;
+  const chunkRows = Math.ceil((rows - 1) / N_CHUNKS);
+  window.__terrainChunks = [];
+  for (let c0 = 0; c0 < rows - 1; c0 += chunkRows) {
+    const cIdx = [];
+    const rEnd = Math.min(c0 + chunkRows, rows - 1);
+    for (let r = c0; r < rEnd; r++) for (let q = 0; q < cols - 1; q++) {
+      const a = r * cols + q, b = a + 1, d = a + cols, e = d + 1;
+      cIdx.push(a, b, d, b, e, d);
+    }
+    const cg = new THREE.BufferGeometry();
+    cg.setAttribute('position', posAttr);
+    cg.setAttribute('color', colAttr);
+    cg.setAttribute('uv', uvAttr);
+    cg.setAttribute('normal', norAttr);
+    cg.setIndex(cIdx);
+    cg.computeBoundingSphere();
+    const cm = new THREE.Mesh(cg, window.__terrainMat);
+    cm.receiveShadow = true;
+    cm.userData.isTerrain = true;
+    scene.add(cm);
+    window.__terrainChunks.push(cm);
+  }
+  window.__terrain = window.__terrainChunks[0]; // legacy handle (batching exclusion etc.)
 }
 
 // ---------------- rails & boxes: segmented, terrain-following park builds ----------------
@@ -1106,7 +1131,7 @@ window.__dbgScene = scene; // temp debug handle
 {
   const statics = [];
   scene.traverse((m) => {
-    if (!m.isMesh || m.isInstancedMesh || m === window.__terrain) return;
+    if (!m.isMesh || m.isInstancedMesh || m.userData.isTerrain) return;
     const mat = m.material;
     if (!mat || Array.isArray(mat) || mat.transparent || mat.isMeshBasicMaterial) return;
     if (!m.geometry.attributes.position) return;
@@ -1114,8 +1139,12 @@ window.__dbgScene = scene; // temp debug handle
   });
   const byMat = new Map();
   for (const m of statics) {
-    if (!byMat.has(m.material.uuid)) byMat.set(m.material.uuid, { mat: m.material, list: [] });
-    byMat.get(m.material.uuid).list.push(m);
+    // bucket by material AND 220m s-slice: merged batches keep tight bounds so
+    // frustum culling drops everything behind / far ahead of the skier [perf]
+    m.updateWorldMatrix(true, false);
+    const key = m.material.uuid + '|' + Math.floor(-m.matrixWorld.elements[14] / 220);
+    if (!byMat.has(key)) byMat.set(key, { mat: m.material, list: [] });
+    byMat.get(key).list.push(m);
   }
   for (const { mat, list } of byMat.values()) {
     if (list.length < 6) continue;
@@ -3086,9 +3115,9 @@ function perfTick(ft) {
   if (fps >= 44 || perfStage >= 2) return;
   perfStage++;
   if (perfStage === 1) renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.0));
-  else if (perfStage === 2 && window.__terrain) {
-    window.__terrain.material.bumpMap = null;
-    window.__terrain.material.needsUpdate = true;
+  else if (perfStage === 2 && window.__terrainMat) {
+    window.__terrainMat.bumpMap = null;
+    window.__terrainMat.needsUpdate = true;
   }
 }
 function frame(now) {

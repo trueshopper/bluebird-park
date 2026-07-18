@@ -679,38 +679,38 @@ const rndTerrain = SIM.mulberry32(777);
   // real mountain — snow-capped shell over the whole tunnel, trees on top ----
   if (SIM.CAVE && SIM.MAP_ID === 'bluebird') {
     const CV = SIM.CAVE;
-    const mid = (CV.s0 + CV.s1) / 2;
-    const cl = SIM.centerline(mid);
-    const baseY = SIM.terrainH(mid, cl);
-    const a2 = (CV.s1 - CV.s0) / 2 + 26, b2 = 40, hM = 30;
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: 0xf2f4f7, map: rep(TEX.snowMap, 6, 6), bumpMap: rep(TEX.snowBump, 6, 6), bumpScale: 0.4 }));
-    dome.scale.set(b2, hM, a2);
-    dome.position.set(cl, baseY - 2, -mid);
-    scene.add(dome);
-    // rocky skirt so the shell reads as stone at the portals
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.12, 0.5, 24, 1, true),
-      new THREE.MeshLambertMaterial({ color: 0x4a4f63, map: rep(TEX.rockMap, 5, 1), bumpMap: rep(TEX.rockBump, 5, 1), bumpScale: 0.35 }));
-    skirt.scale.set(b2 * 0.98, 14, a2 * 0.98);
-    skirt.position.set(cl, baseY + 3.4, -mid);
-    scene.add(skirt);
-    // snow-dusted TREES growing on the mountain top [user]
+    const snowM = new THREE.MeshLambertMaterial({ color: 0xf2f4f7, map: rep(TEX.snowMap, 4, 4), bumpMap: rep(TEX.snowBump, 4, 4), bumpScale: 0.4 });
+    const rockM = new THREE.MeshLambertMaterial({ color: 0x4a4f63, map: rep(TEX.rockMap, 3, 2), bumpMap: rep(TEX.rockBump, 3, 2), bumpScale: 0.35 });
     const rT = SIM.mulberry32(919);
-    const domeTrees = [];
-    for (let i = 0; i < 46; i++) {
-      const ds = (rT() * 2 - 1) * 0.82, dl = (rT() * 2 - 1) * 0.72;
-      const rr = ds * ds + dl * dl;
-      if (rr > 0.8) continue;
-      const y = baseY - 2 + hM * Math.sqrt(Math.max(0.05, 1 - rr)) - 0.4;
-      domeTrees.push([cl + dl * b2, y, -(mid + ds * a2), 0.55 + rT() * 0.6]);
-    }
-    for (const [tx, ty, tz, tsc] of domeTrees) {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
-      trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
-      cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }));
-      cap.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap);
+    // the mountain FOLLOWS the slope: overlapping shell segments down the cave,
+    // each seated on the local floor height — reads as one snow-capped ridge
+    const segStep = 20;
+    for (let sSeg = CV.s0 - 6; sSeg <= CV.s1 + 6; sSeg += segStep) {
+      const cl2 = SIM.centerline(sSeg);
+      const fy = SIM.terrainH(sSeg, cl2);
+      const hM = 23 + rT() * 3;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), snowM);
+      dome.scale.set(30 + rT() * 5, hM, segStep * 0.95);
+      dome.position.set(cl2 + (rT() - 0.5) * 3, fy - 1.5, -sSeg);
+      scene.add(dome);
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.14, 0.42, 18, 1, true), rockM);
+      skirt.scale.set(29, 13, segStep * 0.92);
+      skirt.position.set(cl2, fy + 2.6, -sSeg);
+      scene.add(skirt);
+      // snow-dusted trees on this stretch of the ridge top [user]
+      for (let i = 0; i < 4; i++) {
+        const dl = (rT() * 2 - 1) * 0.55, ds = (rT() * 2 - 1) * 0.4;
+        const rr = dl * dl + ds * ds;
+        const ty = fy - 1.5 + hM * Math.sqrt(Math.max(0.1, 1 - rr)) - 0.3;
+        const tx = cl2 + dl * 30, tz = -(sSeg + ds * segStep * 0.9);
+        const tsc = 0.5 + rT() * 0.55;
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
+        trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
+        cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xf2f4f7 }));
+        cap.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap);
+      }
     }
   }
 

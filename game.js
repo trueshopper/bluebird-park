@@ -2285,6 +2285,23 @@ function updateVisuals(dt) {
       kneeR: [leadN > 0 ? 0.3 : 0.05 * edge, 0, -lean * 0.22],
       hipL: [0, 0, lean * 0.18], hipR: [0, 0, lean * 0.18], // knees angulate with the pelvis
     });
+    { // slope-adaptive body composition
+      const dirS2 = st.vel.s >= 0 ? 1 : -1;
+      const slp = (SIM.terrainH(st.pos.s + dirS2 * 3, st.pos.l) - SIM.terrainH(st.pos.s - dirS2 * 3, st.pos.l)) / 6; // + = climbing
+      const climb = Math.max(-1, Math.min(1, slp / 0.35));
+      if (climb > 0.05) addTargets({
+        hips: [0.3 * climb, 0, 0], spine: [0.22 * climb, 0, 0], neck: [-0.2 * climb, 0, 0],
+        shoulderL: [0.25 * climb, 0, 0], shoulderR: [0.25 * climb, 0, 0],
+        hipL: [-0.3 * climb, 0, 0], hipR: [-0.3 * climb, 0, 0],
+        kneeL: [0.38 * climb, 0, 0], kneeR: [0.38 * climb, 0, 0],
+        ankleL: [-0.16 * climb, 0, 0], ankleR: [-0.16 * climb, 0, 0],
+      });
+      else if (climb < -0.05) { const dn = -climb; addTargets({
+        hips: [-0.1 * dn, 0, 0], spine: [-0.08 * dn, 0, 0], neck: [0.1 * dn, 0, 0],
+        hipL: [-0.16 * dn, 0, 0], hipR: [-0.16 * dn, 0, 0],
+        kneeL: [0.22 * dn, 0, 0], kneeR: [0.22 * dn, 0, 0], ankleL: [-0.08 * dn, 0, 0], ankleR: [-0.08 * dn, 0, 0],
+      }); }
+    }
     const stS = STYLE().stance - 1;
     if (stS !== 0) addTargets({ hipL: [-stS * 0.35, 0, 0], hipR: [-stS * 0.35, 0, 0], kneeL: [stS * 0.6, 0, 0], kneeR: [stS * 0.6, 0, 0], hips: [stS * 0.12, 0, 0], ankleL: [-stS * 0.2, 0, 0], ankleR: [-stS * 0.2, 0, 0] });
     if (st.switchStance) addTargets({ neck: [0, 0.95, 0], spine: [0, 0.3, 0] }); // look over the shoulder
@@ -2397,7 +2414,14 @@ function updateVisuals(dt) {
   _camT.set(flm.l * 0.55 + p.l * 0.45, eyeY, -p.s + dist);
   const camGy = SIM.terrainH(Math.max(0, p.s - dist), _camT.x) + 1.0;
   if (_camT.y < camGy) _camT.y = camGy;
-  camera.position.lerp(_camT, 1 - Math.exp(-5 * dt));
+  { // bump-proof rig: slow vertical damping, snappy horizontal
+    const kH = 1 - Math.exp(-5 * dt), kV = 1 - Math.exp(-2.1 * dt);
+    camera.position.x += (_camT.x - camera.position.x) * kH;
+    camera.position.z += (_camT.z - camera.position.z) * kH;
+    camera.position.y += (_camT.y - camera.position.y) * kV;
+    // never lag out of frame on real drops/climbs
+    camera.position.y = Math.max(Math.min(camera.position.y, p.y + 7), p.y - 5.5);
+  }
   // handheld: a filmer's breath and footwork, always slightly alive
   swayT += dt;
   const sway = 0.035 + Math.min(0.1, spd * 0.003);
@@ -2409,7 +2433,11 @@ function updateVisuals(dt) {
     camera.position.y += (Math.random() - 0.5) * shakeAmp;
   }
   _look.set(p.l, p.y + 0.9, -p.s - 9); // always looking straight down the fall line
-  _lookCur.lerp(_look, 1 - Math.exp(-8 * dt));
+  { const kH = 1 - Math.exp(-8 * dt), kV = 1 - Math.exp(-3.2 * dt); // soft vertical tracking: no nodding over bumps
+    _lookCur.x += (_look.x - _lookCur.x) * kH;
+    _lookCur.z += (_look.z - _lookCur.z) * kH;
+    _lookCur.y += (_look.y - _lookCur.y) * kV;
+    _lookCur.y = Math.max(Math.min(_lookCur.y, p.y + 4), p.y - 4); }
   camera.lookAt(_lookCur);
   const fovT = 56 + Math.min(10, spd * 0.35);
   camera.fov = damp(camera.fov, fovT, 3, dt);

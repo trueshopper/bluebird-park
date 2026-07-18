@@ -586,10 +586,10 @@ export const TUNE = {
   popBase: 1.0,        // realistic ollie: a hop uncharged, ~27cm fully loaded
   popCharge: 1.3,      // extra at full charge
   chargeMax: 0.5,      // s
-  yawRateMax: 5.24,     // rad/s in air — uncharged 360 in ~1.3s, each extra 180 +0.6s [user spec]
-  pitchRateMax: 5.24,   // flips follow the same 180-per-0.6s uncharged clock
+  yawRateMax: 4.85,     // rad/s in air — slightly slower per user: uncharged 360 ~1.4s
+  pitchRateMax: 4.85,   // flips follow the same clock
   rollRateMax: 4.6,    // (legacy, unused by combos)
-  corkRate: 5.24,      // rad/s about the tilted cork axis — cork 3 lands in 1.3s uncharged [user spec]
+  corkRate: 4.85,      // rad/s about the tilted cork axis
   corkSnap: 4.5,       // rad/s snap-through to complete the rotation after release
   corkTilt: 1.0,       // axis tilt from vertical (rad) — how inverted corks/mistys look
   rotAccel: 28.6,        // rad/s^2 ease for air rotation

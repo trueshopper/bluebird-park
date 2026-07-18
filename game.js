@@ -2223,8 +2223,12 @@ function updateVisuals(dt) {
     grabIKReq = gd.ik ? { ik: gd.ik, w: 1 } : null;
     for (const k in JOINT_RATE) { const j2 = J[k], t2 = target[k]; j2.rotation.set(t2[0], t2[1], t2[2]); }
     if (R1.SKIS) { R1.SKIS.L.rotation.x = airSkiL; R1.SKIS.R.rotation.x = airSkiR; }
-    R1.rig.rotation.y = performance.now() * 0.0004; // slow turntable
     if (grabIKReq) applyGrabIK(R1, grabIKReq);
+    { // orbit the CAMERA around the frozen pose, not the rig
+      const rp = R1.rig.position, a2 = performance.now() * 0.0004;
+      camera.position.set(rp.x + Math.sin(a2) * 3.4, rp.y + 1.3, rp.z + Math.cos(a2) * 3.4);
+      camera.lookAt(rp.x, rp.y + 0.55, rp.z);
+    }
     return;
   }
   const st = sim;

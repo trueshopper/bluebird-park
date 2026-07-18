@@ -1765,6 +1765,25 @@ function pT(k, f) {
   PROF.t[k] = (PROF.t[k] || 0) + (performance.now() - t0);
   return r;
 }
+// PERF HUD [perf pass]: press P in-game — live fps / frame ms / draws / tris
+let hudEl = null, hudOn = !!PROF;
+const hud = { ft: 0, n: 0, mx: 0 };
+addEventListener('keydown', (e) => { if (e.code === 'KeyP') { hudOn = !hudOn; if (hudEl) hudEl.style.display = hudOn ? 'block' : 'none'; } });
+function hudFrame(ft) {
+  if (!hudOn) return;
+  if (!hudEl) {
+    hudEl = document.createElement('div');
+    hudEl.style.cssText = 'position:fixed;left:10px;top:72px;z-index:99;font:700 13px monospace;color:#fff;background:rgba(10,14,22,.62);padding:7px 10px;border-radius:8px;white-space:pre;pointer-events:none;';
+    document.body.append(hudEl);
+  }
+  hud.ft += ft; hud.n++; hud.mx = Math.max(hud.mx, ft);
+  if (hud.n >= 30) {
+    const avg = hud.ft / hud.n;
+    hudEl.textContent = 'fps ' + (1000 / avg).toFixed(0) + '  avg ' + avg.toFixed(1) + 'ms  max ' + hud.mx.toFixed(0) + 'ms\n' +
+      'draws ' + renderer.info.render.calls + '  tris ' + (renderer.info.render.triangles / 1000).toFixed(0) + 'k';
+    hud.ft = 0; hud.n = 0; hud.mx = 0;
+  }
+}
 if (PROF) window.__profReport = () => {
   const n = Math.max(1, PROF.frames);
   const out = { frames: n, avgFrameMs: +(PROF.ftSum / n).toFixed(2), fps: +(1000 / (PROF.ftSum / n)).toFixed(1), maxFrameMs: +PROF.ftMax.toFixed(1), buckets: {} };
@@ -3166,6 +3185,7 @@ function frame(now) {
     pT('spray', () => sprayTick(dt2));
   }
   pT('renderSubmit', () => renderer.render(scene, camera));
+  hudFrame(ft);
   if (dev) {
     frames++;
     if (now - fpsAt >= 500) {

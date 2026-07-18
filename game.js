@@ -3067,6 +3067,9 @@ function frame(now) {
     sim.pos.l = SIM.centerline(sim.pos.s);
     sim.pos.y = SIM.terrainH(sim.pos.s, sim.pos.l);
     sim.vel.s = 6; devAtDone = true;
+    // snap the film rig with the teleport so dev spawns frame correctly
+    camera.position.set(sim.pos.l, sim.pos.y + 2.6, -(sim.pos.s - 7));
+    _lookCur.set(sim.pos.l, sim.pos.y + 0.9, -sim.pos.s - 9);
   }
   while (acc >= STEP) {
     SIM.simStep(sim, STEP / 1000, input, STR);

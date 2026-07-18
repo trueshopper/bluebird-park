@@ -139,7 +139,7 @@ export let ZONE_DEFS = [];
 export const MAPS = {
   bluebird: {
     sky: 'night',
-    trackLen: 1320, parkHalf: 40, finishS: 1078,
+    trackLen: 1320, parkHalf: 40, finishS: 1180, // stretched: knuckle garden AND the lodge gap both live [user]
     wind: (s) => {
       let c = 9 * Math.sin(s * 0.008) + 5 * Math.sin(s * 0.0037 + 2);
       c *= smooth01(s / 50);
@@ -149,22 +149,22 @@ export const MAPS = {
     valleyK: (s) => (s > 905 ? 0.002 + 0.008 * smooth01((950 - s) / 45) : 0.010),
     rollers: [[66, 172, 1], [466, 522, 1]],
     gradePts: [
-      [0, 0.45], [30, 0.34], [60, 0.17], [125, 0.19], [178, 0.22],
+      [0, 0.45], [30, 0.36], [60, 0.25], [125, 0.22], [178, 0.22], // steeper in-run to the opening jumps [user]
       [186.5, 0.24], [187.2, 1.35], [194, 1.35], [194.7, 0.42], [225, 0.22],
       [300, 0.18], [392, 0.2], [395, 0.55], [400, 0.55], [404, 0.2],
       [428, 0.26], [436.3, 0.3], [437, 1.5], [446, 1.5], [446.7, 0.48],
       [472, 0.3], [520, 0.27], [900, 0.23], // steeper in-runs feed the taller line
-      [918, 0.21], [950, 0.22], [1130, 0.12], // steady pitch feeds the knuckle garden [user]
-      [1170, 0.04], [1225, -0.08], [1320, -0.16],
+      [918, 0.21], [950, 0.22], [1068, 0.22], [1074, 0.32], [1088, 0.32], [1096, 0.24], [1140, 0.18], [1168, 0.06], // garden, then a headwall face fires the lodge gap [user]
+      [1225, -0.08], [1320, -0.16],
     ],
     kickers: [
       { s0: 95,  La: 11, A: 2.8, T: 10, Ld: 12, off: 0,  name: 'S' },
       { s0: 142, La: 15, A: 4.0, T: 13, Ld: 15, off: 0,  name: 'MED' },   // medium with a knuckle run-up rail beside it
       // the STREAM JUMP LINE: each table launches the line across the creek,
       // landing on the far bank [user]
-      { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, name: 'M' },
-      { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  name: 'L' },
-      { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, name: 'XL' },
+      { s0: 560, La: 16, A: 4.2, T: 15, Ld: 17, off: -5, gap: true, name: 'M' },
+      { s0: 700, La: 19, A: 5.0, T: 15, Ld: 20, off: 6,  gap: true, name: 'L' },
+      { s0: 840, La: 22, A: 5.6, T: 15, Ld: 22, off: -4, gap: true, name: 'XL' },
       // KNUCKLE GARDEN finale [user]: jumps with rails living ON the knuckle run-ups
       { s0: 905, La: 14, A: 4.0, T: 8, Ld: 15, off: -8, name: 'KG1' },
       { s0: 960, La: 15, A: 4.4, T: 8, Ld: 16, off: 6,  name: 'KG2' },
@@ -172,6 +172,7 @@ export const MAPS = {
       // STEP-UP [user: unique to bluebird]: pop the lip, land ON TOP of the block
       { s0: 878, La: 12, A: 3.4, T: 6, Ld: 10, off: 10, name: 'STEPUP' },
       // small jumps INSIDE the crystal cave [user]
+      { s0: 1090, La: 16, A: 5.2, T: 18, Ld: 16, off: 0, name: 'LODGE' }, // the roof gap rides again — steeper lip, honest-speed clear [user]
       { s0: 285, La: 9, A: 2.4, T: 8, Ld: 9, off: -4, name: 'CAVE1' },
       { s0: 355, La: 10, A: 2.6, T: 8, Ld: 10, off: 6, name: 'CAVE2' },
     ],
@@ -187,10 +188,11 @@ export const MAPS = {
       { s0: 948, s1: 958, off: 12,  h: 0.60, w: 0.55, type: 'box', lip: true },   // KG2 knuckle run-up box
       { s0: 1002, s1: 1012, off: -10, h: 0.65, w: 0.35, type: 'rail', lip: true },  // KG3 knuckle run-up bar
       { s0: 1050, s1: 1066, off: 14, h: 0.6, w: 0.4, type: 'kink' },               // stair-set out, off the garden lane [unique]
+      { s0: 1096, s1: 1104, off: 0, h: 4.6, w: 0.8, type: 'ridge' },              // lodge roof ridge [user]
     ],
     // taller cave [user] + small in-cave jumps live in kickers below
     cave: { s0: 240, s1: 436, r: 18 },
-    lodge: null, // the lodge gap retired for the knuckle garden
+    lodge: { s0: 1096, s1: 1104, halfW: 6, wallH: 2.9, ridgeH: 4.6 }, // the lodge is BACK [user]
     rockBands: [[182, 26], [432, 30]],
     fins: [
       // STEP-UP landing block [unique]: flat-top platform you pop ONTO
@@ -419,7 +421,7 @@ function kickerAdd(s, l) {
       // LEVEL table at the RAMP-BASE elevation under the lip — the lip stands a
       // full A above it, and the shelf grows out of the hill as the slope falls
       const tableAdd = baseY(k.s0) - baseY(s);
-      if (s <= k.s0 + k.T) h += tableAdd * envD;
+      if (s <= k.s0 + k.T) h += (k.gap ? 0 : tableAdd) * envD; // gap jumps: void between lip and landing [user]
       else {
         const knuckleAdd = baseY(k.s0) - baseY(k.s0 + k.T);
         h += knuckleAdd * (1 - smooth01((s - k.s0 - k.T) / k.Ld)) * envD; // knuckle -> steep landing
@@ -553,9 +555,17 @@ function clearOfFeatures(s, l) {
 
 // stream path through the forest section (bluebird only) [user]
 export const STREAM = { s0: 452, s1: 872 };
+// control points: (s, offset from centerline). The creek slips THROUGH each
+// gap jump and swings clear of every table, rail and landing in between.
+const STREAM_PTS = [[452, -14], [520, -18], [556, -5], [578, -5], [640, -19], [696, 6], [717, 6], [744, -6], [788, -19], [836, -4], [858, -4], [872, -9]];
 export function streamL(s) {
-  const t = (s - STREAM.s0);
-  return centerline(s) - 15 + 11 * Math.sin(t * 0.019) + 4 * Math.sin(t * 0.043 + 1.2);
+  let a = STREAM_PTS[0], b = STREAM_PTS[STREAM_PTS.length - 1];
+  for (let i = 0; i < STREAM_PTS.length - 1; i++) {
+    if (s >= STREAM_PTS[i][0] && s <= STREAM_PTS[i + 1][0]) { a = STREAM_PTS[i]; b = STREAM_PTS[i + 1]; break; }
+  }
+  const t = b[0] === a[0] ? 0 : Math.min(1, Math.max(0, (s - a[0]) / (b[0] - a[0])));
+  const sm = t * t * (3 - 2 * t);
+  return centerline(s) + a[1] + (b[1] - a[1]) * sm;
 }
 export function buildDecor(seed) {
   const rnd = mulberry32(seed);
@@ -1071,7 +1081,7 @@ function airStep(st, dt, inp, STRN) {
   // airs (a proper rise off a lip, or a big drop). Utility hops onto rails
   // stay crisp so the steel under you doesn't outrun your fall.
   const realAir = (a.apexY - a.startY > 1.1) || (a.startY - st.pos.y > 1.5);
-  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.4 : 0.78) : 1); // floaty airs — gravity back up a touch [user]
+  v.y -= G * dt * (realAir ? (Math.abs(v.y) < 2.8 ? 0.4 : 0.76) : 1); // gravity dialed to 0.76 [user]
   const sp = speedOf(v);
   if (sp > 0.01) {
     const f = Math.max(0, (sp - 0.0014 * sp * sp * dt) / sp);

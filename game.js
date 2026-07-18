@@ -679,40 +679,46 @@ const rndTerrain = SIM.mulberry32(777);
   // real mountain — snow-capped shell over the whole tunnel, trees on top ----
   if (SIM.CAVE && SIM.MAP_ID === 'bluebird') {
     const CV = SIM.CAVE;
-    const snowM = new THREE.MeshLambertMaterial({ color: 0xe8ecf2, map: rep(TEX.snowMap, 4, 4), bumpMap: rep(TEX.snowBump, 4, 4), bumpScale: 0.4 });
+    const rockWallM = new THREE.MeshLambertMaterial({ color: 0x4c5266, map: rep(TEX.rockMap, 3, 2.2), bumpMap: rep(TEX.rockBump, 3, 2.2), bumpScale: 0.4 });
+    const capM = new THREE.MeshLambertMaterial({ color: 0xeef1f6, map: rep(TEX.snowMap, 5, 2), bumpMap: rep(TEX.snowBump, 5, 2), bumpScale: 0.35 });
+    const rockTopM = new THREE.MeshLambertMaterial({ color: 0x565c72, map: rep(TEX.rockMap, 1.5, 1.5), bumpMap: rep(TEX.rockBump, 1.5, 1.5), bumpScale: 0.35 });
     const rT = SIM.mulberry32(919);
-    // HOLLOW mountain over the tunnel: a raised snow vault ABOVE the rock arch
-    // plus sloped flanks running to the ground — the tunnel stays open inside
+    // MESA REDO [user]: rock walls run from the tunnel out to the MAP WALLS,
+    // topped with a FLAT snow layer scattered with trees and boulders
     const segStep = 20;
     for (let sSeg = CV.s0 - 4; sSeg <= CV.s1 + 4; sSeg += segStep) {
       const cl2 = SIM.centerline(sSeg);
       const fy = SIM.terrainH(sSeg, cl2);
-      // roof vault: seated ABOVE the cave arch (arch top ~ fy + 14)
-      const roof = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), snowM);
-      roof.scale.set(30 + rT() * 4, 11 + rT() * 2.5, segStep * 1.0);
-      roof.position.set(cl2 + (rT() - 0.5) * 2, fy + 13.2, -sSeg);
-      scene.add(roof);
-      // sloped flanks: fill the SIDES so it reads as a mountain, not a pipe
+      const topY = fy + 16;
       for (const sd of [-1, 1]) {
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), snowM);
-        wall.scale.set(13, 21, segStep * 1.02);
-        wall.position.set(cl2 + sd * 22.5, fy + 4.5, -sSeg);
-        wall.rotation.z = sd * 0.42; // leaning into the hill
+        // solid rock flank: tunnel edge (±19) out to the park wall (±46)
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(27, 26, segStep * 1.03), rockWallM);
+        wall.position.set(cl2 + sd * 32.5, fy + 3.5, -sSeg);
         scene.add(wall);
       }
-      // snow-dusted trees along the ridge top [user]
-      for (let i = 0; i < 3; i++) {
-        const dl = (rT() * 2 - 1) * 0.5, ds = (rT() * 2 - 1) * 0.4;
-        const rr = dl * dl + ds * ds;
-        const ty = fy + 13.2 + 12 * Math.sqrt(Math.max(0.12, 1 - rr)) - 0.3;
-        const tx = cl2 + dl * 30, tz = -(sSeg + ds * segStep * 0.9);
-        const tsc = 0.5 + rT() * 0.55;
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
-        trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
-        cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
-        const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xe8ecf2 }));
-        cap.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap);
+      // flat snow cap spanning the full width, INCLUDING over the tunnel arch
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(94, 2.6, segStep * 1.03), capM);
+      cap.position.set(cl2, topY + 1.3, -sSeg);
+      scene.add(cap);
+      // natural clutter on the plateau: snow-dusted trees + boulders [user]
+      for (let i = 0; i < 4; i++) {
+        const tx = cl2 + (rT() * 2 - 1) * 42, tz = -(sSeg + (rT() * 2 - 1) * segStep * 0.45);
+        const ty = topY + 2.6;
+        if (rT() < 0.72) {
+          const tsc = 0.55 + rT() * 0.7;
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09 * tsc, 0.13 * tsc, 0.8 * tsc, 5), new THREE.MeshLambertMaterial({ color: 0x5a4633 }));
+          trunk.position.set(tx, ty + 0.4 * tsc, tz); scene.add(trunk);
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.85 * tsc, 2.2 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0x33584a }));
+          cone.position.set(tx, ty + 1.7 * tsc, tz); scene.add(cone);
+          const cap2 = new THREE.Mesh(new THREE.ConeGeometry(0.55 * tsc, 0.7 * tsc, 7), new THREE.MeshLambertMaterial({ color: 0xeef1f6 }));
+          cap2.position.set(tx, ty + 2.6 * tsc, tz); scene.add(cap2);
+        } else {
+          const b = new THREE.Mesh(lumpy(new THREE.IcosahedronGeometry(1, 1), 0.3, 5), rockTopM);
+          b.scale.setScalar(0.8 + rT() * 1.3);
+          b.position.set(tx, ty + 0.5, tz);
+          b.rotation.set(rT() * 3, rT() * 3, rT() * 3);
+          scene.add(b);
+        }
       }
     }
   }
@@ -745,8 +751,8 @@ const rndTerrain = SIM.mulberry32(777);
     for (let i = 0; i < n2; i++) {
       const s2 = pts[i], l2 = SIM.streamL(s2);
       const y2 = SIM.terrainH(s2, l2) + 0.07;
-      pos2[i * 6] = l2 - 1.5; pos2[i * 6 + 1] = y2; pos2[i * 6 + 2] = -s2;
-      pos2[i * 6 + 3] = l2 + 1.5; pos2[i * 6 + 4] = y2; pos2[i * 6 + 5] = -s2;
+      pos2[i * 6] = l2 - 3; pos2[i * 6 + 1] = y2; pos2[i * 6 + 2] = -s2; // 6m wide creek [user]
+      pos2[i * 6 + 3] = l2 + 3; pos2[i * 6 + 4] = y2; pos2[i * 6 + 5] = -s2;
       if (i > 0) { const a3 = (i - 1) * 2; idx.push(a3, a3 + 1, a3 + 2, a3 + 1, a3 + 3, a3 + 2); }
     }
     const sg = new THREE.BufferGeometry();
